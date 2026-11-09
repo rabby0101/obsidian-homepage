@@ -465,160 +465,49 @@ body.is-mobile .rb-mode { right: 14px; bottom: calc(86px + env(safe-area-inset-b
   .rb-sections .rb-sec-sub input[type="text"] { width: 120px; }
 }
 
+/* Phones: the section row (name, colour, toggle, up, down, delete) is
+   wider than the screen and the delete button was cut off. Let the
+   controls wrap: name on its own full-width line, the rest below. */
+.is-phone .rb-sections .rb-sec-row .setting-item-control,
+.is-mobile .rb-sections .rb-sec-row .setting-item-control {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+.is-phone .rb-sections .rb-sec-row .setting-item-control input[type="text"],
+.is-mobile .rb-sections .rb-sec-row .setting-item-control input[type="text"] {
+  flex: 1 1 100%;
+  width: 100%;
+  min-width: 0;
+}
+.is-phone .rb-sections .rb-sec-row .setting-item-control input[type="color"],
+.is-mobile .rb-sections .rb-sec-row .setting-item-control input[type="color"] {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  padding: 0;
+  border-radius: 50%;
+}
+.is-phone .rb-sections .rb-sec-sub .setting-item-control,
+.is-mobile .rb-sections .rb-sec-sub .setting-item-control {
+  flex-wrap: wrap;
+  min-width: 0;
+}
 
-/* ── open tabs panel (left sidebar) ──────────────────────────────── */
-.rb-tabs { padding: 10px 8px 16px; font-family: var(--font-interface); }
-.rb-tabs-h {
-  padding: 2px 10px 8px;
-  font-size: .68rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
-  color: var(--text-muted);
-}
-.rb-tabs-g { padding: 10px 10px 4px; font-size: .72rem; color: var(--text-faint); }
-.rb-tabs-empty { padding: 18px 10px; font-size: .85rem; color: var(--text-faint); }
-
-.rb-tabs-row {
-  position: relative;
-  display: flex; align-items: center; gap: 10px;
-  padding: 7px 10px; margin-bottom: 2px;
-  border-radius: 8px; cursor: pointer;
-  color: var(--text-normal);
-  transition: background .12s ease;
-}
-.rb-tabs-row:hover { background: var(--background-modifier-hover); }
-.rb-tabs-row.is-active {
-  background: color-mix(in srgb, var(--interactive-accent) 16%, transparent);
-}
-.rb-tabs-row.is-active::before {
-  content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px;
-  border-radius: 3px; background: var(--interactive-accent);
-}
-.rb-tabs-i { display: flex; flex: 0 0 auto; color: var(--text-muted); }
-.rb-tabs-row.is-active .rb-tabs-i { color: var(--interactive-accent); }
-.rb-tabs-i svg { width: 16px; height: 16px; }
-.rb-tabs-t { flex: 1; min-width: 0; line-height: 1.3; }
-.rb-tabs-n { font-size: .88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rb-tabs-p { font-size: .72rem; color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rb-tabs-pin { display: flex; color: var(--text-faint); }
-.rb-tabs-pin svg { width: 12px; height: 12px; }
-.rb-tabs-x {
-  display: flex; flex: 0 0 auto; padding: 3px; border-radius: 5px;
-  color: var(--text-muted); opacity: 0;
-}
-.rb-tabs-row:hover .rb-tabs-x { opacity: 1; }
-.rb-tabs-x:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
-.rb-tabs-x svg { width: 14px; height: 14px; }
-
-
-/* ── open tabs panel — styled ────────────────────────────────────── */
-.rb-tabs { padding: 14px 10px 18px; }
-.rb-tabs-h {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 2px 8px 12px;
-  font-size: .72rem; letter-spacing: .14em;
-}
-.rb-tabs-count {
-  min-width: 22px; padding: 1px 8px; border-radius: 999px;
-  font-size: .72rem; font-weight: 700; letter-spacing: 0; text-align: center;
-  color: var(--interactive-accent);
-  background: color-mix(in srgb, var(--interactive-accent) 16%, transparent);
-}
-.rb-tabs-g { padding: 12px 8px 6px; letter-spacing: .08em; text-transform: uppercase; font-size: .66rem; font-weight: 700; }
-
-.rb-tabs-row {
-  gap: 12px; padding: 8px 10px; margin-bottom: 4px;
-  border-radius: 12px;
-  border: 1px solid transparent;
-  transition: background .15s ease, border-color .15s ease, transform .15s ease;
-}
-.rb-tabs-row:hover { background: color-mix(in srgb, rgb(var(--tab-rgb)) 9%, transparent); }
-.rb-tabs-row:active { transform: scale(.985); }
-.rb-tabs-row.is-active {
-  background: color-mix(in srgb, rgb(var(--tab-rgb)) 15%, transparent);
-  border-color: color-mix(in srgb, rgb(var(--tab-rgb)) 38%, transparent);
-  box-shadow: 0 6px 18px -10px rgb(var(--tab-rgb));
-}
-.rb-tabs-row.is-active::before { display: none; }
-
-.rb-tabs-i {
-  width: 32px; height: 32px; border-radius: 10px;
-  align-items: center; justify-content: center;
-  color: rgb(var(--tab-rgb));
-  background: rgba(var(--tab-rgb), .15);
-}
-.rb-tabs-row.is-active .rb-tabs-i { color: #fff; background: rgb(var(--tab-rgb)); }
-.rb-tabs-i svg { width: 17px; height: 17px; }
-.rb-tabs-n { font-size: .9rem; font-weight: 560; }
-.rb-tabs-p { margin-top: 1px; }
-.rb-tabs-pin { color: rgb(var(--tab-rgb)); }
-.rb-tabs-x { padding: 4px; border-radius: 7px; }
-
-
-/* ── open tabs panel — colourful pills, all together ─────────────── */
-.rb-tabs-cloud { display: flex; flex-wrap: wrap; gap: 8px; padding: 2px 4px; }
-
-.rb-tabs-pill {
-  display: inline-flex; align-items: center; gap: 7px;
-  max-width: 100%;
-  padding: 6px 8px 6px 11px; border-radius: 999px;
-  font-size: .84rem; font-weight: 560; line-height: 1.25;
-  color: hsl(var(--tab-h) 85% 74%);
-  background: hsl(var(--tab-h) 60% 55% / .16);
-  border: 1px solid hsl(var(--tab-h) 60% 60% / .32);
-  cursor: pointer;
-  transition: background .15s ease, border-color .15s ease, transform .15s ease;
-}
-body.theme-light .rb-tabs-pill {
-  color: hsl(var(--tab-h) 60% 30%);
-  background: hsl(var(--tab-h) 75% 60% / .2);
-  border-color: hsl(var(--tab-h) 60% 45% / .35);
-}
-.rb-tabs-pill:hover { background: hsl(var(--tab-h) 60% 55% / .28); }
-.rb-tabs-pill:active { transform: scale(.97); }
-
-.rb-tabs-pill.is-active {
-  color: #fff;
-  background: hsl(var(--tab-h) 62% 50%);
-  border-color: hsl(var(--tab-h) 70% 62%);
-  box-shadow: 0 6px 16px -8px hsl(var(--tab-h) 80% 55%);
-}
 
 /* the pill owns its colours now; neutralise the earlier row styling */
-.rb-tabs-pill .rb-tabs-i,
-.rb-tabs-pill.is-active .rb-tabs-i {
-  width: auto; height: auto; border-radius: 0; background: none;
-  color: inherit;
-}
-.rb-tabs-pill .rb-tabs-i svg { width: 14px; height: 14px; }
-.rb-tabs-pill .rb-tabs-n {
-  min-width: 0; max-width: 22ch;
-  font-size: inherit; font-weight: inherit;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.rb-tabs-pill .rb-tabs-pin { color: inherit; opacity: .8; }
-.rb-tabs-pill .rb-tabs-x {
-  padding: 2px; border-radius: 50%;
-  color: inherit; opacity: .45;
-}
-.rb-tabs-pill:hover .rb-tabs-x { opacity: .9; }
-.rb-tabs-pill .rb-tabs-x:hover { background: rgba(255,255,255,.2); }
-.rb-tabs-pill .rb-tabs-x svg { width: 12px; height: 12px; }
 
-/* ── open tabs panel — simple: flat pills, no glow ───────────────── */
-.rb-tabs-pill {
-  box-shadow: none;
-  border: none;
-  padding: 6px 8px 6px 11px;
-  background: hsl(var(--tab-h) 55% 55% / .15);
-  transition: background .12s ease;
-}
-body.theme-light .rb-tabs-pill { border: none; background: hsl(var(--tab-h) 70% 60% / .18); }
-.rb-tabs-pill:hover { background: hsl(var(--tab-h) 55% 55% / .25); }
-.rb-tabs-pill:active { transform: none; }
-.rb-tabs-pill.is-active {
-  box-shadow: none;
-  border: none;
-  background: hsl(var(--tab-h) 55% 48%);
-}
+
+
+
+
+
+
+
 
 /* ── homepage tiles: pocket folder (reference-exact) ─────────────── */
 .hp-card {
@@ -1233,3 +1122,390 @@ body:not(.is-mobile) .workspace-leaf-content[data-type="rabby-homepage-view"] .h
   margin: 0 .08em;
 }
 .hp-ov-sentence .hp-ov-ic svg { width: .82em; height: .82em; }
+
+
+/* ── settings: grouped-card layout (v3.10) ─────────────────────────── */
+.rb-hp-settings .rb-group-title,
+.rb-sheet .rb-group-title {
+  font-size: var(--font-ui-smaller);
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 24px 14px 8px;
+}
+.rb-hp-settings > .rb-group-title:first-child { margin-top: 4px; }
+.rb-sheet .rb-group-title { margin: 18px 6px 8px; }
+
+.rb-hp-settings .rb-group,
+.rb-sheet .rb-group {
+  background: var(--background-secondary);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.rb-hp-settings .rb-group-note {
+  font-size: var(--font-ui-smaller);
+  line-height: 1.45;
+  color: var(--text-faint);
+  margin: 8px 14px 0;
+}
+
+/* plain settings inside a card */
+.rb-group > .setting-item {
+  margin: 0;
+  padding: 12px 16px;
+  border-top: 1px solid var(--background-modifier-border);
+  border-radius: 0;
+  background: none;
+}
+.rb-group > .setting-item:first-child,
+.rb-group > .rb-row:first-child { border-top: none; }
+.rb-group > .setting-item .setting-item-description { font-size: var(--font-ui-smaller); }
+.rb-group .setting-item-control input[type="text"] { width: 160px; max-width: 100%; }
+
+/* list rows */
+.rb-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 54px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+.rb-row.is-clickable { cursor: pointer; }
+.rb-row.is-clickable:active,
+.rb-row.is-clickable:hover { background: var(--background-modifier-hover); }
+.rb-row.is-dim .rb-row-n { color: var(--text-muted); }
+.rb-row.is-dim .rb-row-ic { opacity: .5; }
+
+.rb-row-ic {
+  --rb-rgb: 128,128,128;
+  flex: 0 0 auto;
+  width: 34px; height: 34px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(var(--rb-rgb), .16);
+  color: rgb(var(--rb-rgb));
+}
+.rb-row-ic svg { width: 18px; height: 18px; }
+.rb-row-ic-plain { background: none; color: var(--interactive-accent); }
+
+.rb-row-t { flex: 1 1 auto; min-width: 0; }
+.rb-row-n,
+.rb-row-s { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rb-row-n { font-size: var(--font-ui-medium); color: var(--text-normal); }
+.rb-row-s { font-size: var(--font-ui-smaller); color: var(--text-muted); margin-top: 2px; }
+.rb-row-add .rb-row-n { color: var(--interactive-accent); font-weight: 600; }
+
+.rb-row-r { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; }
+.rb-row-chev { display: flex; color: var(--text-faint); }
+.rb-row-chev svg { width: 18px; height: 18px; }
+.rb-row-btns { display: flex; gap: 0; }
+.rb-row-badge {
+  font-size: var(--font-ui-smaller);
+  color: var(--interactive-accent);
+  background: color-mix(in srgb, var(--interactive-accent) 14%, transparent);
+  padding: 2px 8px; border-radius: 999px;
+}
+
+.rb-link-btn {
+  text-align: center;
+  padding: 12px;
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.rb-link-btn.is-warn { color: var(--text-error); font-weight: 600; }
+
+/* edit sheet */
+.rb-sheet .rb-sheet-pv { display: flex; align-items: center; gap: 12px; margin: 2px 4px 16px; }
+.rb-sheet .rb-sheet-pv-ic { width: 46px; height: 46px; border-radius: 13px; }
+.rb-sheet .rb-sheet-pv-ic svg { width: 24px; height: 24px; }
+.rb-sheet .rb-sheet-pv-n { font-size: 1.2em; font-weight: 700; color: var(--text-normal); }
+
+.rb-sheet .rb-swatches { display: flex; flex-wrap: wrap; gap: 12px; padding: 14px; }
+.rb-swatch {
+  --rb-rgb: 128,128,128;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: rgb(var(--rb-rgb));
+  border: 2px solid transparent;
+  box-shadow: inset 0 0 0 2px var(--background-secondary);
+  cursor: pointer;
+}
+.rb-swatch.is-on { border-color: var(--text-normal); }
+input.rb-swatch-custom {
+  padding: 0;
+  background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
+  border: 2px solid var(--background-modifier-border);
+  overflow: hidden;
+  -webkit-appearance: none; appearance: none;
+}
+input.rb-swatch-custom::-webkit-color-swatch-wrapper { padding: 0; }
+input.rb-swatch-custom::-webkit-color-swatch { border: none; opacity: 0; }
+
+.rb-sheet .rb-danger-btn {
+  display: block;
+  width: 100%;
+  height: 46px;
+  margin-top: 22px;
+  border-radius: 23px;
+  background: rgba(var(--color-red-rgb), .14);
+  color: var(--text-error);
+  font-weight: 600;
+  box-shadow: none;
+  border: none;
+}
+.rb-sheet .rb-danger-btn:hover { background: rgba(var(--color-red-rgb), .22); }
+/* sheet: Obsidian's modal body is a flex column that shrinks children —
+   keep every block at its natural height, and lift cards off the sheet */
+.rb-sheet .modal-content > * { flex-shrink: 0; }
+.rb-sheet .rb-group { background: var(--background-modifier-hover); }
+.rb-sheet .rb-group > .setting-item { padding: 12px 16px; }
+.rb-sheet .modal-content { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+.rb-row-chev.is-blank { visibility: hidden; }
+.rb-sheet .rb-group > .setting-item,
+.rb-hp-settings .rb-group > .setting-item {
+  padding: 12px 16px !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 12px;
+}
+.rb-sheet .rb-group > .setting-item .setting-item-info,
+.rb-hp-settings .rb-group > .setting-item .setting-item-info { flex: 1 1 auto; min-width: 0; margin: 0 !important; }
+.rb-sheet .rb-group > .setting-item .setting-item-control,
+.rb-hp-settings .rb-group > .setting-item .setting-item-control { flex: 0 0 auto; width: auto !important; margin: 0 !important; padding: 0 !important; }
+.rb-sheet .rb-group .setting-item-control input[type="text"] { width: 150px; }
+
+/* colour grid (in the edit sheet) */
+.rb-swatch-more {
+  background: conic-gradient(#f44, #fd4, #4f6, #4df, #46f, #f4f, #f44);
+  border: 2px solid var(--background-modifier-border);
+  position: relative;
+}
+.rb-swatch-more.has-custom { background: rgb(var(--rb-rgb)); }
+.rb-swatch-more.has-custom::after {
+  content: ""; position: absolute; inset: -6px; border-radius: 50%;
+  background: conic-gradient(#f44, #fd4, #4f6, #4df, #46f, #f4f, #f44);
+  z-index: -1;
+}
+.rb-swatch-more.is-open { border-color: var(--text-normal); }
+
+.rb-sheet .rb-cgrid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 0;
+  padding: 0;
+  margin-top: 10px;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.rb-cgrid-cell {
+  aspect-ratio: 1;
+  background: rgb(var(--rb-rgb));
+  cursor: pointer;
+  position: relative;
+}
+.rb-cgrid-cell.is-on {
+  z-index: 1;
+  box-shadow: 0 0 0 3px var(--background-primary), 0 0 0 5px var(--text-normal);
+  border-radius: 4px;
+}
+.rb-hp-settings .rb-group { background: var(--background-modifier-hover); }
+
+
+/* ── open tabs panel (left sidebar; desktop and tablets) ── */
+.rb-tabs { padding: 10px 8px 16px; font-family: var(--font-interface); }
+.rb-tabs-h {
+  padding: 2px 10px 8px;
+  font-size: .68rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.rb-tabs-g { padding: 10px 10px 4px; font-size: .72rem; color: var(--text-faint); }
+.rb-tabs-empty { padding: 18px 10px; font-size: .85rem; color: var(--text-faint); }
+.rb-tabs-row {
+  position: relative;
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px; margin-bottom: 2px;
+  border-radius: 8px; cursor: pointer;
+  color: var(--text-normal);
+  transition: background .12s ease;
+}
+.rb-tabs-row:hover { background: var(--background-modifier-hover); }
+.rb-tabs-row.is-active {
+  background: color-mix(in srgb, var(--interactive-accent) 16%, transparent);
+}
+.rb-tabs-row.is-active::before {
+  content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px;
+  border-radius: 3px; background: var(--interactive-accent);
+}
+.rb-tabs-i { display: flex; flex: 0 0 auto; color: var(--text-muted); }
+.rb-tabs-row.is-active .rb-tabs-i { color: var(--interactive-accent); }
+.rb-tabs-i svg { width: 16px; height: 16px; }
+.rb-tabs-t { flex: 1; min-width: 0; line-height: 1.3; }
+.rb-tabs-n { font-size: .88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rb-tabs-p { font-size: .72rem; color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rb-tabs-pin { display: flex; color: var(--text-faint); }
+.rb-tabs-pin svg { width: 12px; height: 12px; }
+.rb-tabs-x {
+  display: flex; flex: 0 0 auto; padding: 3px; border-radius: 5px;
+  color: var(--text-muted); opacity: 0;
+}
+.rb-tabs-row:hover .rb-tabs-x { opacity: 1; }
+.rb-tabs-x:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.rb-tabs-x svg { width: 14px; height: 14px; }
+.rb-tabs { padding: 14px 10px 18px; }
+.rb-tabs-h {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 2px 8px 12px;
+  font-size: .72rem; letter-spacing: .14em;
+}
+.rb-tabs-count {
+  min-width: 22px; padding: 1px 8px; border-radius: 999px;
+  font-size: .72rem; font-weight: 700; letter-spacing: 0; text-align: center;
+  color: var(--interactive-accent);
+  background: color-mix(in srgb, var(--interactive-accent) 16%, transparent);
+}
+.rb-tabs-g { padding: 12px 8px 6px; letter-spacing: .08em; text-transform: uppercase; font-size: .66rem; font-weight: 700; }
+.rb-tabs-row {
+  gap: 12px; padding: 8px 10px; margin-bottom: 4px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  transition: background .15s ease, border-color .15s ease, transform .15s ease;
+}
+.rb-tabs-row:hover { background: color-mix(in srgb, rgb(var(--tab-rgb)) 9%, transparent); }
+.rb-tabs-row:active { transform: scale(.985); }
+.rb-tabs-row.is-active {
+  background: color-mix(in srgb, rgb(var(--tab-rgb)) 15%, transparent);
+  border-color: color-mix(in srgb, rgb(var(--tab-rgb)) 38%, transparent);
+  box-shadow: 0 6px 18px -10px rgb(var(--tab-rgb));
+}
+.rb-tabs-row.is-active::before { display: none; }
+.rb-tabs-i {
+  width: 32px; height: 32px; border-radius: 10px;
+  align-items: center; justify-content: center;
+  color: rgb(var(--tab-rgb));
+  background: rgba(var(--tab-rgb), .15);
+}
+.rb-tabs-row.is-active .rb-tabs-i { color: #fff; background: rgb(var(--tab-rgb)); }
+.rb-tabs-i svg { width: 17px; height: 17px; }
+.rb-tabs-n { font-size: .9rem; font-weight: 560; }
+.rb-tabs-p { margin-top: 1px; }
+.rb-tabs-pin { color: rgb(var(--tab-rgb)); }
+.rb-tabs-x { padding: 4px; border-radius: 7px; }
+.rb-tabs-cloud { display: flex; flex-wrap: wrap; gap: 8px; padding: 2px 4px; }
+.rb-tabs-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  max-width: 100%;
+  padding: 6px 8px 6px 11px; border-radius: 999px;
+  font-size: .84rem; font-weight: 560; line-height: 1.25;
+  color: hsl(var(--tab-h) 85% 74%);
+  background: hsl(var(--tab-h) 60% 55% / .16);
+  border: 1px solid hsl(var(--tab-h) 60% 60% / .32);
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, transform .15s ease;
+}
+body.theme-light .rb-tabs-pill {
+  color: hsl(var(--tab-h) 60% 30%);
+  background: hsl(var(--tab-h) 75% 60% / .2);
+  border-color: hsl(var(--tab-h) 60% 45% / .35);
+}
+.rb-tabs-pill:hover { background: hsl(var(--tab-h) 60% 55% / .28); }
+.rb-tabs-pill:active { transform: scale(.97); }
+.rb-tabs-pill.is-active {
+  color: #fff;
+  background: hsl(var(--tab-h) 62% 50%);
+  border-color: hsl(var(--tab-h) 70% 62%);
+  box-shadow: 0 6px 16px -8px hsl(var(--tab-h) 80% 55%);
+}
+.rb-tabs-pill .rb-tabs-i,
+.rb-tabs-pill.is-active .rb-tabs-i {
+  width: auto; height: auto; border-radius: 0; background: none;
+  color: inherit;
+}
+.rb-tabs-pill .rb-tabs-i svg { width: 14px; height: 14px; }
+.rb-tabs-pill .rb-tabs-n {
+  min-width: 0; max-width: 22ch;
+  font-size: inherit; font-weight: inherit;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rb-tabs-pill .rb-tabs-pin { color: inherit; opacity: .8; }
+.rb-tabs-pill .rb-tabs-x {
+  padding: 2px; border-radius: 50%;
+  color: inherit; opacity: .45;
+}
+.rb-tabs-pill:hover .rb-tabs-x { opacity: .9; }
+.rb-tabs-pill .rb-tabs-x:hover { background: rgba(255,255,255,.2); }
+.rb-tabs-pill .rb-tabs-x svg { width: 12px; height: 12px; }
+.rb-tabs-pill {
+  box-shadow: none;
+  border: none;
+  padding: 6px 8px 6px 11px;
+  background: hsl(var(--tab-h) 55% 55% / .15);
+  transition: background .12s ease;
+}
+body.theme-light .rb-tabs-pill { border: none; background: hsl(var(--tab-h) 70% 60% / .18); }
+.rb-tabs-pill:hover { background: hsl(var(--tab-h) 55% 55% / .25); }
+.rb-tabs-pill:active { transform: none; }
+.rb-tabs-pill.is-active {
+  box-shadow: none;
+  border: none;
+  background: hsl(var(--tab-h) 55% 48%);
+}
+
+/* quote sheet */
+.rb-sheet .rb-quote-pv {
+  margin: 2px 2px 16px; padding: 16px 18px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+  border-left: 3px solid var(--interactive-accent);
+}
+.rb-sheet .rb-quote-pv-t { font-size: 1.02em; line-height: 1.45; color: var(--text-normal); }
+.rb-sheet .rb-quote-pv-b { margin-top: 8px; font-style: italic; color: var(--text-muted); font-size: var(--font-ui-small); }
+.rb-sheet .rb-quote-pv.is-empty .rb-quote-pv-t { color: var(--text-faint); }
+.rb-sheet .rb-group > .setting-item.rb-quote-text {
+  flex-direction: column !important;
+  align-items: stretch !important;
+}
+.rb-sheet .rb-quote-text .setting-item-control { width: 100% !important; }
+.rb-sheet .rb-quote-text textarea { width: 100%; min-height: 96px; resize: vertical; }
+.rb-hp-settings .rb-row-n { line-height: 1.3; }
+
+/* ── keyboard: keep sheets above it (mobile) ─────────────────────────
+   Obsidian publishes the on-screen keyboard height as --keyboard-height
+   (0 when it is closed). Shrinking the modal container by that much
+   re-centres the sheet in the space that is still visible. */
+.is-mobile .modal-container:has(> .modal.rb-sheet),
+.is-mobile .modal-container:has(> .modal.rb-kb) {
+  box-sizing: border-box;
+  padding-bottom: var(--keyboard-height, 0px);
+  transition: padding-bottom .18s ease;
+}
+.is-mobile .modal.rb-sheet,
+.is-mobile .modal.rb-kb {
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
+}
+
+/* Phones: these are bottom sheets. Docked to the bottom edge, so with
+   the keyboard open they sit directly on top of it (no gap), and with
+   it closed they rest on the bottom of the screen. */
+.is-phone .modal-container:has(> .modal.rb-sheet),
+.is-phone .modal-container:has(> .modal.rb-kb) {
+  align-items: flex-end !important;
+  justify-content: center;
+}
+.is-phone .modal.rb-sheet,
+.is-phone .modal.rb-kb {
+  margin: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  max-height: calc(100% - var(--safe-area-inset-top, 0px) - 12px);
+  padding-bottom: calc(14px + var(--safe-area-inset-bottom, 0px));
+}
+/* with the keyboard up, the keyboard covers the home-indicator area */
+body.is-phone:not([style*="--keyboard-height: 0px"]) .modal.rb-sheet,
+body.is-phone:not([style*="--keyboard-height: 0px"]) .modal.rb-kb { padding-bottom: 14px; }

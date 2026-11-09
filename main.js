@@ -37,6 +37,7 @@
 const {
   ItemView, MarkdownView, Modal, Plugin, PluginSettingTab, Setting, FuzzySuggestModal,
   Menu, Notice, Platform, setIcon, requestUrl, normalizePath, TFile, getIconIds,
+  ToggleComponent, ExtraButtonComponent,
 } = require('obsidian');
 
 const VIEW_TYPE   = 'rabby-homepage-view';
@@ -81,6 +82,15 @@ const hexToRgb = hex => {
   const n = parseInt(m[1], 16);
   return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
 };
+
+/** The theme's accent colour as "r,g,b" (bookmarks always use it). */
+function accentRgb() {
+  const probe = document.body.createDiv();
+  probe.style.color = 'var(--interactive-accent)';
+  const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(getComputedStyle(probe).color || '');
+  probe.remove();
+  return m ? `${m[1]},${m[2]},${m[3]}` : '139,92,246';
+}
 
 /* ── helpers ────────────────────────────────────────────────────────── */
 
@@ -499,7 +509,7 @@ class HomepageView extends ItemView {
 
   buildQuote() {
     const q = this.plugin.settings.quote;
-    if (!q || !q.text) return;
+    if (!q || q.enabled === false || !(q.text || '').trim()) return;
     const el = this.root.createDiv({ cls: 'hp-quote' });
     el.createDiv({ cls: 'hp-quote-t', text: q.text });
     if (q.by) el.createDiv({ cls: 'hp-quote-b', text: `— ${q.by}` });
@@ -508,12 +518,15 @@ class HomepageView extends ItemView {
   /* ── bookmarks: 2×2 + expandable list ──────────────────────────── */
 
   buildBookmarks(marks) {
+    const B = this.plugin.settings.bookmarks || {};
+    const label = 'Bookmarks', icon = 'bookmark';
+    const preview = Math.max(1, B.preview | 0 || BOOKMARK_PREVIEW);
     const wrap = this.root.createDiv({ cls: 'hp-sec hp-bm' });
-    wrap.style.setProperty('--hp-rgb', '242,96,12');
+    wrap.style.setProperty('--hp-rgb', accentRgb());
 
     const head = wrap.createDiv({ cls: 'hp-sec-h' });
-    setIcon(head.createSpan({ cls: 'hp-sec-i' }), 'bookmark');
-    head.createSpan({ cls: 'hp-sec-t', text: 'Bookmarks' });
+    setIcon(head.createSpan({ cls: 'hp-sec-i' }), icon);
+    head.createSpan({ cls: 'hp-sec-t', text: label });
     if (marks.length) head.createSpan({ cls: 'hp-sec-n', text: String(marks.length) });
 
     if (!marks.length) {
@@ -522,11 +535,12 @@ class HomepageView extends ItemView {
     }
 
     const grid = wrap.createDiv({ cls: 'hp-grid hp-grid-2' });
-    marks.slice(0, BOOKMARK_PREVIEW).forEach(m => grid.appendChild(this.card(m, { label: 'Bookmarks', icon: 'bookmark' })));
+    marks.slice(0, preview).forEach(m => grid.appendChild(this.card(m, { label, icon })));
 
-    if (marks.length > BOOKMARK_PREVIEW) {
+    if (marks.length > preview) {
       const btn = wrap.createDiv({ cls: 'hp-more' });
-      const lbl = btn.createSpan({ text: `All bookmarks (${marks.length})` });
+      const all = `All ${label.toLowerCase()} (${marks.length})`;
+      const lbl = btn.createSpan({ text: all });
       setIcon(btn.createSpan({ cls: 'hp-more-c' }), 'chevron-down');
 
       const list = wrap.createDiv({ cls: 'hp-list' });
@@ -535,7 +549,7 @@ class HomepageView extends ItemView {
       btn.onclick = () => {
         const open = wrap.hasClass('is-open');
         wrap.toggleClass('is-open', !open);
-        lbl.setText(open ? `All bookmarks (${marks.length})` : 'Show less');
+        lbl.setText(open ? all : 'Show less');
       };
     }
   }
@@ -732,6 +746,7 @@ class OpenTabsView extends ItemView {
 class NewTileModal extends Modal {
   constructor(app, def, onSubmit) { super(app); this.def = def; this.onSubmit = onSubmit; }
   onOpen() {
+    this.modalEl.addClass('rb-kb');
     this.titleEl.setText(`New in ${this.def.label || this.def.id}`);
     const input = this.contentEl.createEl('input', { type: 'text', placeholder: 'Title' });
     input.style.width = '100%';
@@ -786,7 +801,6 @@ const DEFAULTS = {
   sections: null,
   hideBookmarks: false,
   /* an "Open tabs" panel in the left sidebar, next to Search and Tags */
-  showOpenTabs: true,
   /* 'replace' takes over the frontmost tab, 'newtab' opens alongside,
      'off' leaves Obsidian's own session restore alone. Default is off:
      reopening where you left off is the behaviour Obsidian ships, and
@@ -794,8 +808,7 @@ const DEFAULTS = {
      adding one. The Home button is always a tap away. */
   bootMode: 'off',
   /* 0 = no cap. Mobile accumulates tabs with no way to close them. */
-  maxTabs: 1,
-  alwaysReading: true,
+  showOpenTabs: true,
   bootMigrated: false,
   /* The floating orange home circle. Off: the bar is icon-only and
      centred, and the homepage is reached from the command palette or
@@ -803,6 +816,7 @@ const DEFAULTS = {
   homeButton: false,
   dock: { enabled: false, labels: true, v: DOCK_VERSION, items: DOCK_DEFAULT, overflow: OVERFLOW_DEFAULT },
   quote: {
+    enabled: true,
     text: 'Tell me and I forget, teach me and I may remember, involve me and I learn.',
     by: 'Benjamin Franklin',
   },
@@ -847,16 +861,14 @@ module.exports = class HomepagePlugin extends Plugin {
       this.mountHome();
       this.decorateActiveView();
       this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.decorateActiveView()));
+      this.registerEvent(this.app.workspace.on('css-change', () => this.refreshViews()));
       this.registerEvent(this.app.workspace.on('file-open', (file) => {
-        this.forceReading(file);
         this.decorateActiveView();
       }));
       this.registerEvent(this.app.workspace.on('layout-change', () => {
         this.decorateActiveView();
-        this.queueTabCap();
         this.alignHome();
       }));
-      this.enforceTabCap();
     });
 
     this.addCommand({
@@ -1018,30 +1030,6 @@ module.exports = class HomepagePlugin extends Plugin {
     this.paintBookmarkBtn(bm, view.file);
     this.placeBookmark(view, bm);
     this.paintMode(view, ovl.querySelector('.rb-mode'));
-  }
-
-  /* ── always open in reading mode ──────────────────────────────────
-     Obsidian's "Default view for new tabs" only applies to *new* tabs.
-     On mobile one leaf gets reused for everything, so once you edit a
-     note the next note you open inherits editing too. This forces the
-     mode on file-open instead, which is where "always" actually lives.
-
-     Deliberately on file-open and not on every render: tap the pencil
-     and the note stays editable. Open a different note and it's reading
-     again. A brand-new empty note is left alone — you made it to write
-     in it. */
-
-  forceReading(file) {
-    if (!this.settings.alwaysReading) return;
-    if (file && file.stat && file.stat.size === 0) return;   // new, empty note
-
-    const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-    if (!view || view.getMode?.() !== 'source') return;
-
-    const state = view.getState();
-    if (state.mode === 'preview') return;
-    state.mode = 'preview';
-    view.setState(state, { history: false });
   }
 
   /** Shows the mode you'd switch *to*, not the one you're in — a button
@@ -1221,39 +1209,6 @@ module.exports = class HomepagePlugin extends Plugin {
      already does this job. Turning the setting off restores Obsidian's
      own bar immediately, so a broken dock is never a trap. */
 
-  /* ── tab cap ───────────────────────────────────────────────────────
-     Obsidian mobile has no tab management UI to speak of, so tabs just
-     pile up — you had 81. This keeps the root split to a fixed number,
-     dropping the leftmost (oldest) first and never touching the one you
-     are looking at.
-
-     Detaching a leaf is safe: Obsidian writes file changes as you type,
-     so there is no unsaved state living in a tab. */
-
-  enforceTabCap() {
-    const cap = this.settings.maxTabs | 0;
-    if (cap < 1) return;
-
-    const ws = this.app.workspace;
-    const leaves = [];
-    ws.iterateRootLeaves(l => leaves.push(l));
-    if (leaves.length <= cap) return;
-
-    const active = ws.getMostRecentLeaf(ws.rootSplit);
-    const droppable = leaves.filter(l => l !== active);
-
-    let over = leaves.length - cap;
-    while (over > 0 && droppable.length) {
-      droppable.shift().detach();      // leftmost first
-      over--;
-    }
-  }
-
-  queueTabCap() {
-    clearTimeout(this._tc);
-    this._tc = setTimeout(() => this.enforceTabCap(), 300);
-  }
-
   closeOtherTabs() {
     const ws = this.app.workspace;
     const active = ws.getMostRecentLeaf(ws.rootSplit);
@@ -1276,7 +1231,9 @@ module.exports = class HomepagePlugin extends Plugin {
      a blank screen. That matters more than the effect. */
 
   bootToHomepage() {
-    const mode = this.settings.bootMode;
+    /* The "On launch" option was removed (v3.10): the homepage never
+       takes over on start-up; Obsidian restores your last session. */
+    const mode = 'off';
 
     if (mode === 'off') return;
 
@@ -1320,6 +1277,22 @@ module.exports = class HomepagePlugin extends Plugin {
       this.settings.bootMode = 'off';
     }
     delete this.settings.openOnStart;
+    /* bookmarks block: number of cards shown (v3.10) */
+    this.settings.bookmarks = Object.assign(
+      { preview: 4 }, this.settings.bookmarks || {});
+    /* bookmarks have a fixed title, icon and the accent colour */
+    delete this.settings.bookmarks.rgb;
+    delete this.settings.bookmarks.label;
+    delete this.settings.bookmarks.icon;
+    /* quote: one quote the user writes, plus a show/hide switch (v3.10) */
+    {
+      const q = this.settings.quote || {};
+      const first = Array.isArray(q.list) && q.list[0] ? q.list[0] : q;
+      this.settings.quote = { enabled: q.enabled !== false, text: first.text || '', by: first.by || '' };
+    }
+    /* removed in v3.10 */
+    delete this.settings.maxTabs;
+    delete this.settings.alwaysReading;
 
     /* v2 shipped bootMode:'replace' as the default and overrode session
        restore for everyone. Hand that back once. */
@@ -1485,7 +1458,8 @@ module.exports = class HomepagePlugin extends Plugin {
   async syncTabsView() {
     const ws = this.app.workspace;
     const existing = ws.getLeavesOfType(TABS_VIEW);
-    if (!this.settings.showOpenTabs) { existing.forEach(l => l.detach()); return; }
+    /* desktop and tablets only: on a phone the panel is never shown */
+    if (!this.settings.showOpenTabs || Platform.isPhone) { existing.forEach(l => l.detach()); return; }
     if (existing.length) return;
 
     let leaf = null;
@@ -1519,328 +1493,458 @@ class HomepageSettings extends PluginSettingTab {
     this.plugin.mountDock();
   }
 
-  /* ── sections editor ─────────────────────────────────────────────── */
+  /* ── settings UI: grouped-card layout ─────────────────────────────
+     Rounded cards with slim rows (icon · title · subtitle · control ·
+     chevron), small uppercase titles above and a muted note below.
+     Editing a row happens in a sheet, so nothing has to squeeze onto
+     one line on a phone. */
+
+  group(parent, title, note) {
+    if (title) parent.createDiv({ cls: 'rb-group-title', text: title });
+    const g = parent.createDiv({ cls: 'rb-group' });
+    if (note) parent.createDiv({ cls: 'rb-group-note', text: note });
+    return g;
+  }
+
+  listRow(g, o) {
+    const r = g.createDiv({ cls: 'rb-row' + (o.onClick ? ' is-clickable' : '') + (o.dim ? ' is-dim' : '') });
+    const ic = r.createDiv({ cls: 'rb-row-ic' });
+    if (o.rgb) ic.style.setProperty('--rb-rgb', o.rgb);
+    setIcon(ic, o.icon || 'circle');
+    const t = r.createDiv({ cls: 'rb-row-t' });
+    t.createDiv({ cls: 'rb-row-n', text: o.title || '' });
+    if (o.sub) t.createDiv({ cls: 'rb-row-s', text: o.sub });
+    const right = r.createDiv({ cls: 'rb-row-r' });
+    if (o.onClick) {
+      r.addEventListener('click', e => { if (!e.target.closest('.rb-row-ctl')) o.onClick(); });
+    }
+    return { r, right };
+  }
+
+  chevron(right) {
+    const c = right.createSpan({ cls: 'rb-row-chev' });
+    setIcon(c, 'chevron-right');
+  }
+
+  toggle(right, value, onChange) {
+    const w = right.createDiv({ cls: 'rb-row-ctl' });
+    new ToggleComponent(w).setValue(value).onChange(onChange);
+  }
+
+  addRow(g, label, onClick) {
+    const a = g.createDiv({ cls: 'rb-row rb-row-add is-clickable' });
+    setIcon(a.createDiv({ cls: 'rb-row-ic rb-row-ic-plain' }), 'plus');
+    a.createDiv({ cls: 'rb-row-t' }).createDiv({ cls: 'rb-row-n', text: label });
+    a.addEventListener('click', onClick);
+  }
+
+  /* two-step link button: first tap arms, second confirms */
+  armedLink(parent, key, idle, armed, onConfirm, redraw) {
+    const on = this._arm === key;
+    const b = parent.createDiv({ cls: 'rb-link-btn' + (on ? ' is-warn' : ''), text: on ? armed : idle });
+    b.addEventListener('click', () => {
+      if (this._arm === key) { this._arm = null; onConfirm(); return; }
+      this._arm = key; redraw();
+      setTimeout(() => { if (this._arm === key) { this._arm = null; redraw(); } }, 3500);
+    });
+  }
+
+  /* ── sections ─────────────────────────────────────────────────── */
 
   renderSections(host) {
     host.empty();
     const P = this.plugin;
     const secs = P.settings.sections;
-    const iconIds = typeof getIconIds === 'function' ? new Set(getIconIds().map(i => i.replace(/^lucide-/, ''))) : null;
-
     const commit = () => { P.persist(); P.refreshViews(); };
-    /* text fields fire on every keystroke — wait for a pause */
-    const commitSoon = () => { clearTimeout(this._ct); this._ct = setTimeout(commit, 350); };
     const redraw = () => this.renderSections(host);
+    const edit = s => new SectionModal(this.app, P, s, () => { commit(); redraw(); }).open();
 
-    /* two-step delete / reset: first click arms, second confirms */
-    const arm = key => {
-      this._arm = key;
-      redraw();
-      setTimeout(() => { if (this._arm === key) { this._arm = null; redraw(); } }, 3500);
-    };
+    const g = host.createDiv({ cls: 'rb-group' });
 
-    new Setting(host)
-      .setName('Bookmarks')
-      .setDesc('Your bookmarked notes, at the top of the homepage.')
-      .addToggle(t => t
-        .setValue(!P.settings.hideBookmarks)
-        .onChange(v => { P.settings.hideBookmarks = !v; commit(); }));
-
-    secs.forEach((s, i) => {
-      /* line 1 — name, colour, visibility, order, delete */
-      const row = new Setting(host).setClass('rb-sec-row');
-      row.setName('');
-      const ico = row.infoEl.createSpan({ cls: 'rb-sec-ico' });
-      const paintIcon = () => {
-        ico.empty();
-        setIcon(ico, s.icon || 'folder');
-        ico.style.color = `rgb(${s.rgb || '128,128,128'})`;
-      };
-      paintIcon();
-
-      let matchText = null;
-      row.addText(t => t
-        .setPlaceholder('Section name')
-        .setValue(s.label || '')
-        .onChange(v => {
-          s.label = v.trim();
-          /* a new section's Class value follows its name until you set it yourself */
-          if (s.linked) { s.match = s.label; if (matchText) matchText.setValue(s.match); }
-          commitSoon();
-        }));
-
-      row.addColorPicker(cp => cp
-        .setValue(rgbToHex(s.rgb))
-        .onChange(hex => { s.rgb = hexToRgb(hex); paintIcon(); commitSoon(); }));
-
-      row.addToggle(t => t
-        .setTooltip(s.hidden ? 'Hidden — show on homepage' : 'Shown — hide from homepage')
-        .setValue(!s.hidden)
-        .onChange(v => { s.hidden = !v; commit(); }));
-
-      row.addExtraButton(b => b
-        .setIcon('chevron-up').setTooltip('Move up').setDisabled(i === 0)
-        .onClick(() => { [secs[i - 1], secs[i]] = [secs[i], secs[i - 1]]; commit(); redraw(); }));
-      row.addExtraButton(b => b
-        .setIcon('chevron-down').setTooltip('Move down').setDisabled(i === secs.length - 1)
-        .onClick(() => { [secs[i + 1], secs[i]] = [secs[i], secs[i + 1]]; commit(); redraw(); }));
-
-      if (this._arm === s.id) {
-        row.addButton(b => b.setButtonText('Confirm delete').setWarning().onClick(() => {
-          secs.splice(i, 1);
-          delete (P.settings.open || {})[s.id];
-          this._arm = null;
-          commit(); redraw();
-        }));
-      } else {
-        row.addExtraButton(b => b.setIcon('trash-2').setTooltip('Delete section').onClick(() => arm(s.id)));
-      }
-
-      /* line 2 — icon and the Class value that fills the section */
-      const sub = new Setting(host).setClass('rb-sec-sub');
-      sub.setDesc('Icon (Lucide name)  ·  Class value a note needs to appear here');
-      sub.addText(t => t
-        .setPlaceholder('folder')
-        .setValue(s.icon || '')
-        .onChange(v => {
-          v = v.trim();
-          s.icon = v;
-          /* only preview names Obsidian actually knows, so half-typed
-             text never leaves an empty icon on the homepage */
-          if (!iconIds || !v || iconIds.has(v)) { paintIcon(); commitSoon(); }
-        }));
-      sub.addText(t => {
-        matchText = t;
-        t.setPlaceholder('Class value')
-         .setValue(s.match || '')
-         .onChange(v => { s.match = v.trim(); s.linked = false; commitSoon(); });
+    secs.forEach(s => {
+      const { right } = this.listRow(g, {
+        icon: s.icon || 'folder', rgb: s.rgb, title: s.label || 'Untitled',
+        sub: s.hidden ? 'Hidden from the homepage' : `Class: ${s.match || '—'}`,
+        dim: s.hidden, onClick: () => edit(s),
       });
+      this.toggle(right, !s.hidden, v => { s.hidden = !v; commit(); redraw(); });
+      this.chevron(right);
     });
 
-    new Setting(host)
-      .addButton(b => b
-        .setButtonText('Add section')
-        .setCta()
-        .onClick(() => {
-          const id = 's' + Date.now().toString(36);
-          secs.push({
-            id, label: 'New section', icon: 'folder',
-            rgb: PALETTE[secs.length % PALETTE.length],
-            match: 'New section', hidden: false, linked: true,
-          });
-          commit(); redraw();
-        }))
-      .addButton(b => this._arm === 'reset'
-        ? b.setButtonText('Confirm reset').setWarning().onClick(() => {
-            P.settings.sections = defaultSections();
-            this._arm = null;
-            commit(); redraw();
-          })
-        : b.setButtonText('Reset to defaults').onClick(() => arm('reset')));
+    this.addRow(g, 'Add section', () => {
+      const s = {
+        id: 's' + Date.now().toString(36), label: 'New section', icon: 'folder',
+        rgb: PALETTE[secs.length % PALETTE.length], match: 'New section',
+        hidden: false, linked: true,
+      };
+      secs.push(s); commit(); redraw(); edit(s);
+    });
+
+    this.armedLink(host, 'reset', 'Reset sections to defaults', 'Tap again to reset all sections',
+      () => { P.settings.sections = defaultSections(); commit(); redraw(); }, redraw);
   }
 
   display() {
     const { containerEl: c } = this;
     c.empty();
+    c.addClass('rb-hp-settings');
+    const S = this.plugin.settings;
 
-    new Setting(c).setName('General').setHeading();
+    /* General */
+    const gen = this.group(c, 'General');
 
-    new Setting(c)
-      .setName('On launch')
-      .setDesc('The workspace is held blank until the homepage is mounted, so you never see last session\u2019s note paint first. Capped at 2.5s \u2014 if anything goes wrong you get your vault back, not a blank screen.')
-      .addDropdown(d => d
-        .addOption('replace', 'Open homepage in the current tab')
-        .addOption('newtab',  'Open homepage in a new tab')
-        .addOption('off',     'Do nothing')
-        .setValue(this.plugin.settings.bootMode)
-        .onChange(v => { this.plugin.settings.bootMode = v; this.save(); }));
-
-    new Setting(c)
-      .setName('Always open notes in reading mode')
-      .setDesc('Obsidian\'s own setting only covers new tabs; on mobile one tab gets reused, so editing one note makes the next open in editing too. This forces reading on every file open. A new empty note is left in editing.')
-      .addToggle(t => t
-        .setValue(this.plugin.settings.alwaysReading)
-        .onChange(v => { this.plugin.settings.alwaysReading = v; this.save(); }));
-
-    new Setting(c)
+    if (!Platform.isPhone) new Setting(gen)
       .setName('Open tabs panel')
-      .setDesc('Adds an \u201cOpen tabs\u201d view in the left sidebar, next to Search and Tags, listing every open tab in one place.')
+      .setDesc('An \u201cOpen tabs\u201d view in the left sidebar listing every open tab. Desktop and tablets only.')
       .addToggle(t => t
-        .setValue(!!this.plugin.settings.showOpenTabs)
+        .setValue(!!S.showOpenTabs)
         .onChange(async v => {
-          this.plugin.settings.showOpenTabs = v;
+          S.showOpenTabs = v;
           this.plugin.persist();
           await this.plugin.syncTabsView();
         }));
 
-    new Setting(c)
-      .setName('Keep at most this many tabs')
-      .setDesc('Mobile piles up tabs with no way to close them. Oldest are dropped first; the tab you are looking at is never touched. Set to 0 to leave tabs alone.')
-      .addText(t => t
-        .setPlaceholder('1')
-        .setValue(String(this.plugin.settings.maxTabs))
-        .onChange(v => {
-          const n = parseInt(v, 10);
-          this.plugin.settings.maxTabs = Number.isFinite(n) && n >= 0 ? n : 0;
-          this.save();
-        }));
-
-    new Setting(c)
+    new Setting(gen)
       .setName('Floating home button')
-      .setDesc('The orange circle bottom right. Off by default — with it off there is no home button anywhere, so reach the homepage from the command palette or the ribbon icon.')
+      .setDesc('A round home button over every note.')
       .addToggle(t => t
-        .setValue(this.plugin.settings.homeButton)
+        .setValue(S.homeButton)
         .onChange(v => {
-          this.plugin.settings.homeButton = v;
+          S.homeButton = v;
           this.save();
           this.plugin.mountHome();
           this.plugin.decorateActiveView();
         }));
 
-    new Setting(c).setName('Sections').setHeading();
-    c.createEl('p', {
-      cls: 'setting-item-description',
-      text: 'A note appears in a section when its frontmatter has type: Widget and Class: [[<Class value>]]. Hide a section to keep it without showing it; delete removes it for good. Changes apply to an open homepage straight away.',
-    });
-    this.renderSections(c.createDiv({ cls: 'rb-sections' }));
-
-    new Setting(c).setName('Dock').setHeading();
-
-    new Setting(c)
-      .setName('Replace the mobile toolbar')
-      .setDesc('Hides Obsidian\'s bottom bar and shows this one instead. Mobile only — turn it off and Obsidian\'s own bar comes straight back.')
+    /* Bookmarks */
+    const bmg = this.group(c, 'Bookmarks', 'Notes you bookmark in Obsidian, shown at the top of the homepage.');
+    const B = S.bookmarks;
+    const refresh = () => { this.plugin.persist(); this.plugin.refreshViews(); };
+    new Setting(bmg)
+      .setName('Show on homepage')
       .addToggle(t => t
-        .setValue(this.plugin.settings.dock.enabled)
-        .onChange(v => { this.plugin.settings.dock.enabled = v; this.save(); this.display(); }));
+        .setValue(!S.hideBookmarks)
+        .onChange(v => { S.hideBookmarks = !v; refresh(); }));
+    new Setting(bmg)
+      .setName('Cards before \u201cAll bookmarks\u201d')
+      .setDesc('The rest are in the list below the cards.')
+      .addDropdown(d => {
+        [2, 4, 6, 8].forEach(n => d.addOption(String(n), String(n)));
+        d.setValue(String(B.preview || 4))
+         .onChange(v => { B.preview = parseInt(v, 10) || 4; refresh(); });
+      });
 
-    if (!this.plugin.settings.dock.enabled) return;
+    /* Quote */
+    const Q = S.quote;
+    const qg = this.group(c, 'Quote', 'Shown under the overview on the homepage.');
+    const qsave = () => { this.plugin.persist(); this.plugin.refreshViews(); };
+    new Setting(qg)
+      .setName('Show quote')
+      .addToggle(t => t
+        .setValue(Q.enabled !== false)
+        .onChange(v => { Q.enabled = v; qsave(); this.display(); }));
+    if (Q.enabled !== false) {
+      const { right } = this.listRow(qg, {
+        icon: 'quote', rgb: accentRgb(),
+        title: Q.text || 'Write your quote', sub: Q.by ? `\u2014 ${Q.by}` : 'Tap to edit',
+        dim: !Q.text,
+        onClick: () => new QuoteModal(this.app, this.plugin, Q, () => { qsave(); this.display(); }).open(),
+      });
+      this.chevron(right);
+    }
 
-    new Setting(c)
+    /* Sections */
+    c.createDiv({ cls: 'rb-group-title', text: 'Sections' });
+    this.renderSections(c.createDiv({ cls: 'rb-sections' }));
+    c.createDiv({
+      cls: 'rb-group-note',
+      text: 'A note appears in a section when its frontmatter has type: Widget and Class: [[<Class value>]]. Tap a section to edit it.',
+    });
+
+    /* Dock */
+    const dock = this.group(c, 'Dock');
+    new Setting(dock)
+      .setName('Replace the mobile toolbar')
+      .setDesc('Mobile only. Turn it off and Obsidian’s own bar comes straight back.')
+      .addToggle(t => t
+        .setValue(S.dock.enabled)
+        .onChange(v => { S.dock.enabled = v; this.save(); this.display(); }));
+
+    if (!S.dock.enabled) return;
+
+    new Setting(dock)
       .setName('Show labels')
       .addToggle(t => t
-        .setValue(this.plugin.settings.dock.labels)
-        .onChange(v => { this.plugin.settings.dock.labels = v; this.save(); }));
+        .setValue(S.dock.labels)
+        .onChange(v => { S.dock.labels = v; this.save(); }));
 
-    const items = this.plugin.settings.dock.items;
-
-    items.forEach((item, i) => {
+    /* Dock items */
+    const items = S.dock.items;
+    const di = this.group(c, 'Dock items',
+      'Icon names are Lucide names (lucide.dev). An item whose command no longer exists is skipped.');
+    items.forEach(item => {
       const cmd = item.overflow ? null : this.app.commands.findCommand(item.id);
-      const missing = !item.overflow && !cmd;
-
-      const s = new Setting(c)
-        .setName(item.label || item.id)
-        .setDesc(item.overflow
-          ? 'Opens the overflow menu below'
-          : (missing ? `\u26a0 command not found: ${item.id}` : cmd.name));
-
-      /* label */
-      s.addText(t => t
-        .setPlaceholder('Label')
-        .setValue(item.label || '')
-        .onChange(v => { item.label = v; this.save(); }));
-
-      /* lucide icon name */
-      s.addText(t => t
-        .setPlaceholder('lucide icon')
-        .setValue(item.icon || '')
-        .onChange(v => { item.icon = v.trim(); this.save(); }));
-
-      /* which command — meaningless for the overflow button */
-      if (!item.overflow) s.addExtraButton(b => b
-        .setIcon('terminal')
-        .setTooltip('Change command')
-        .onClick(() => new CommandPicker(this.app, picked => {
-          item.id = picked.id;
-          if (!item.label) item.label = picked.name;
-          this.save();
-          this.display();
-        }).open()));
-
-      /* raised centre item */
-      s.addExtraButton(b => b
-        .setIcon(item.primary ? 'star' : 'star-off')
-        .setTooltip('Primary (raised) item')
-        .onClick(() => {
-          const on = !item.primary;
-          items.forEach(x => delete x.primary);
-          if (on) item.primary = true;
-          this.save();
-          this.display();
-        }));
-
-      s.addExtraButton(b => b
-        .setIcon('arrow-up')
-        .setTooltip('Move up')
-        .setDisabled(i === 0)
-        .onClick(() => {
-          items.splice(i - 1, 0, items.splice(i, 1)[0]);
-          this.save(); this.display();
-        }));
-
-      s.addExtraButton(b => b
-        .setIcon('arrow-down')
-        .setTooltip('Move down')
-        .setDisabled(i === items.length - 1)
-        .onClick(() => {
-          items.splice(i + 1, 0, items.splice(i, 1)[0]);
-          this.save(); this.display();
-        }));
-
-      s.addExtraButton(b => b
-        .setIcon('trash')
-        .setTooltip('Remove')
-        .onClick(() => { items.splice(i, 1); this.save(); this.display(); }));
+      const sub = item.overflow ? 'Opens the overflow menu'
+        : (cmd ? cmd.name : `⚠ command not found: ${item.id}`);
+      const { right } = this.listRow(di, {
+        icon: item.icon || 'circle', title: item.label || item.id, sub,
+        onClick: () => new DockItemModal(this.app, this, item, () => this.display()).open(),
+      });
+      if (item.primary) right.createSpan({ cls: 'rb-row-badge', text: 'Primary' });
+      this.chevron(right);
     });
+    this.addRow(di, 'Add item', () => new CommandPicker(this.app, picked => {
+      items.push({ id: picked.id, icon: 'circle', label: picked.name });
+      this.save(); this.display();
+    }).open());
 
-    new Setting(c).setName('Overflow menu').setHeading()
-      .setDesc('What the More button opens. Keep Settings in here — with the native toolbar hidden this is your only route to it on mobile.');
-
-    const of = this.plugin.settings.dock.overflow;
-
+    /* Overflow menu */
+    const of = S.dock.overflow;
+    const og = this.group(c, 'Overflow menu',
+      'What the More button opens. Keep Settings in here: with the native toolbar hidden it is your only way to it on mobile.');
     of.forEach((id, i) => {
       const cmd = this.app.commands.findCommand(id);
-      new Setting(c)
-        .setName(cmd ? cmd.name : id)
-        .setDesc(cmd ? '' : `\u26a0 command not found: ${id}`)
-        .addExtraButton(b => b.setIcon('arrow-up').setDisabled(i === 0)
-          .onClick(() => { of.splice(i - 1, 0, of.splice(i, 1)[0]); this.save(); this.display(); }))
-        .addExtraButton(b => b.setIcon('arrow-down').setDisabled(i === of.length - 1)
-          .onClick(() => { of.splice(i + 1, 0, of.splice(i, 1)[0]); this.save(); this.display(); }))
-        .addExtraButton(b => b.setIcon('trash')
-          .onClick(() => { of.splice(i, 1); this.save(); this.display(); }));
+      const { right } = this.listRow(og, {
+        icon: 'terminal-square', title: cmd ? cmd.name : id,
+        sub: cmd ? '' : '⚠ command not found',
+      });
+      const ctl = right.createDiv({ cls: 'rb-row-ctl rb-row-btns' });
+      new ExtraButtonComponent(ctl).setIcon('chevron-up').setTooltip('Move up').setDisabled(i === 0)
+        .onClick(() => { of.splice(i - 1, 0, of.splice(i, 1)[0]); this.save(); this.display(); });
+      new ExtraButtonComponent(ctl).setIcon('chevron-down').setTooltip('Move down').setDisabled(i === of.length - 1)
+        .onClick(() => { of.splice(i + 1, 0, of.splice(i, 1)[0]); this.save(); this.display(); });
+      new ExtraButtonComponent(ctl).setIcon('x').setTooltip('Remove')
+        .onClick(() => { of.splice(i, 1); this.save(); this.display(); });
+    });
+    this.addRow(og, 'Add to overflow', () => new CommandPicker(this.app, picked => {
+      of.push(picked.id); this.save(); this.display();
+    }).open());
+
+    this.armedLink(c, 'dock-reset', 'Reset dock to defaults', 'Tap again to reset the dock', () => {
+      S.dock.items    = JSON.parse(JSON.stringify(DOCK_DEFAULT));
+      S.dock.overflow = [...OVERFLOW_DEFAULT];
+      this.save(); this.display();
+    }, () => this.display());
+  }
+}
+
+/* ── edit sheets ──────────────────────────────────────────────────── */
+
+class SectionModal extends Modal {
+  constructor(app, plugin, s, done, opts = {}) {
+    super(app);
+    this.plugin = plugin; this.s = s; this.done = done; this.armed = false; this.opts = opts;
+  }
+  onOpen()  { this.modalEl.addClass('rb-sheet'); this.render(); }
+  onClose() { clearTimeout(this._t); this.plugin.persist(); this.plugin.refreshViews(); this.contentEl.empty(); this.done(); }
+
+  render() {
+    if (!this.modalEl.isConnected) return;
+    const { contentEl: c, s, plugin: P } = this;
+    const secs = P.settings.sections;
+    c.empty();
+    this.titleEl.setText(this.opts.title || 'Edit section');
+
+    const save = () => { P.persist(); P.refreshViews(); };
+    const soon = () => { clearTimeout(this._t); this._t = setTimeout(save, 350); };
+    const iconIds = typeof getIconIds === 'function'
+      ? new Set(getIconIds().map(x => x.replace(/^lucide-/, ''))) : null;
+
+    /* live preview */
+    const pv = c.createDiv({ cls: 'rb-sheet-pv' });
+    const pic = pv.createDiv({ cls: 'rb-row-ic rb-sheet-pv-ic' });
+    const pname = pv.createDiv({ cls: 'rb-sheet-pv-n' });
+    const paint = () => {
+      pic.empty(); setIcon(pic, s.icon || 'folder');
+      pic.style.setProperty('--rb-rgb', this.opts.accent ? accentRgb() : (s.rgb || '128,128,128'));
+      pname.setText(s.label || 'Untitled');
+    };
+    paint();
+
+    const g = c.createDiv({ cls: 'rb-group' });
+    let matchText = null;
+    new Setting(g).setName('Name').addText(t => t
+      .setPlaceholder('Section name').setValue(s.label || '')
+      .onChange(v => {
+        s.label = v.trim();
+        if (s.linked) { s.match = s.label; if (matchText) matchText.setValue(s.match); }
+        paint(); soon();
+      }));
+    new Setting(g).setName('Icon').setDesc('Lucide name, e.g. briefcase').addText(t => t
+      .setPlaceholder('folder').setValue(s.icon || '')
+      .onChange(v => {
+        v = v.trim(); s.icon = v;
+        if (!iconIds || !v || iconIds.has(v)) { paint(); soon(); }
+      }));
+    if (!this.opts.simple) new Setting(g).setName('Class value').setDesc('Notes with Class: [[this]] show here').addText(t => {
+      matchText = t;
+      t.setPlaceholder('Class value').setValue(s.match || '')
+       .onChange(v => { s.match = v.trim(); s.linked = false; soon(); });
     });
 
-    new Setting(c)
-      .addButton(b => b
-        .setButtonText('Add to overflow')
-        .onClick(() => new CommandPicker(this.app, picked => {
-          of.push(picked.id); this.save(); this.display();
+    if (this.opts.accent) return;   // bookmarks: colour follows the theme accent
+
+    c.createDiv({ cls: 'rb-group-title', text: 'Colour' });
+    const cg = c.createDiv({ cls: 'rb-group rb-swatches' });
+    /* every coloured element that can be "the current colour" */
+    const pickables = [];
+    const mark = () => pickables.forEach(([el, rgb]) => el.toggleClass('is-on', rgb === s.rgb));
+    const pick = rgb => { s.rgb = rgb; paint(); mark(); save(); };
+
+    const choices = [...new Set([...SECTIONS.map(x => x.rgb), ...PALETTE].filter(Boolean))];
+    choices.forEach(rgb => {
+      const sw = cg.createDiv({ cls: 'rb-swatch' });
+      sw.style.setProperty('--rb-rgb', rgb);
+      sw.addEventListener('click', () => pick(rgb));
+      pickables.push([sw, rgb]);
+    });
+
+    /* "more colours": opens a grid of hues x shades, in the sheet itself
+       (no system colour dialog) */
+    const more = cg.createDiv({ cls: 'rb-swatch rb-swatch-more' + (this.showGrid ? ' is-open' : ''), attr: { 'aria-label': 'More colours' } });
+    const isCustom = !choices.includes(s.rgb);
+    if (isCustom) { more.style.setProperty('--rb-rgb', s.rgb); more.addClass('has-custom'); }
+    more.addEventListener('click', () => { this.showGrid = !this.showGrid; this.render(); });
+
+    if (this.showGrid) {
+      const hsl = (h, sat, l) => {
+        sat /= 100; l /= 100;
+        const k = n => (n + h / 30) % 12, a = sat * Math.min(l, 1 - l);
+        const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+        return [f(0), f(8), f(4)].map(x => Math.round(x * 255)).join(',');
+      };
+      const grid = c.createDiv({ cls: 'rb-group rb-cgrid' });
+      const rows = [];
+      rows.push(Array.from({ length: 12 }, (_, i) => { const v = Math.round(255 - i * 255 / 11); return `${v},${v},${v}`; }));
+      [88, 78, 68, 58, 48, 38, 28].forEach(l =>
+        rows.push(Array.from({ length: 12 }, (_, i) => hsl(i * 30, 88, l))));
+      rows.forEach(row => row.forEach(rgb => {
+        const cell = grid.createDiv({ cls: 'rb-cgrid-cell' });
+        cell.style.setProperty('--rb-rgb', rgb);
+        cell.addEventListener('click', () => pick(rgb));
+        pickables.push([cell, rgb]);
+      }));
+    }
+    mark();
+
+    if (this.opts.simple) return;
+
+    const i = secs.indexOf(s);
+    c.createDiv({ cls: 'rb-group-title', text: 'Order' });
+    const og = c.createDiv({ cls: 'rb-group' });
+    const mv = d => { const j = i + d; [secs[i], secs[j]] = [secs[j], secs[i]]; save(); this.render(); };
+    new Setting(og).setName(`Position ${i + 1} of ${secs.length}`)
+      .addExtraButton(b => b.setIcon('chevron-up').setTooltip('Move up').setDisabled(i <= 0).onClick(() => mv(-1)))
+      .addExtraButton(b => b.setIcon('chevron-down').setTooltip('Move down').setDisabled(i >= secs.length - 1).onClick(() => mv(1)));
+
+    const del = c.createEl('button', { cls: 'rb-danger-btn', text: this.armed ? 'Tap again to delete' : 'Delete section' });
+    del.addEventListener('click', () => {
+      if (!this.armed) {
+        this.armed = true; this.render();
+        setTimeout(() => { if (this.armed) { this.armed = false; this.render(); } }, 3500);
+        return;
+      }
+      const k = secs.indexOf(s);
+      if (k >= 0) secs.splice(k, 1);
+      delete (P.settings.open || {})[s.id];
+      this.armed = false;
+      this.close();
+    });
+  }
+}
+
+class DockItemModal extends Modal {
+  constructor(app, tab, item, done) {
+    super(app);
+    this.tab = tab; this.item = item; this.done = done; this.armed = false;
+  }
+  onOpen()  { this.modalEl.addClass('rb-sheet'); this.render(); }
+  onClose() { this.contentEl.empty(); this.done(); }
+
+  render() {
+    if (!this.modalEl.isConnected) return;
+    const { contentEl: c, item, tab } = this;
+    const items = tab.plugin.settings.dock.items;
+    c.empty();
+    this.titleEl.setText('Edit dock item');
+
+    const pv = c.createDiv({ cls: 'rb-sheet-pv' });
+    const pic = pv.createDiv({ cls: 'rb-row-ic rb-sheet-pv-ic' });
+    const pname = pv.createDiv({ cls: 'rb-sheet-pv-n' });
+    const paint = () => { pic.empty(); setIcon(pic, item.icon || 'circle'); pname.setText(item.label || item.id); };
+    paint();
+
+    const g = c.createDiv({ cls: 'rb-group' });
+    new Setting(g).setName('Label').addText(t => t
+      .setPlaceholder('Label').setValue(item.label || '')
+      .onChange(v => { item.label = v; paint(); tab.save(); }));
+    new Setting(g).setName('Icon').setDesc('Lucide name').addText(t => t
+      .setPlaceholder('circle').setValue(item.icon || '')
+      .onChange(v => { item.icon = v.trim(); paint(); tab.save(); }));
+    if (!item.overflow) {
+      const cmd = this.app.commands.findCommand(item.id);
+      new Setting(g).setName('Command').setDesc(cmd ? cmd.name : `⚠ not found: ${item.id}`)
+        .addButton(b => b.setButtonText('Change').onClick(() => new CommandPicker(this.app, picked => {
+          item.id = picked.id;
+          if (!item.label) item.label = picked.name;
+          tab.save(); this.render();
         }).open()));
+    }
+    new Setting(g).setName('Primary (raised) item').addToggle(t => t
+      .setValue(!!item.primary)
+      .onChange(v => { items.forEach(x => delete x.primary); if (v) item.primary = true; tab.save(); }));
 
-    new Setting(c).setName('Dock items').setHeading();
+    const i = items.indexOf(item);
+    c.createDiv({ cls: 'rb-group-title', text: 'Order' });
+    const og = c.createDiv({ cls: 'rb-group' });
+    const mv = d => { items.splice(i + d, 0, items.splice(i, 1)[0]); tab.save(); this.render(); };
+    new Setting(og).setName(`Position ${i + 1} of ${items.length}`)
+      .addExtraButton(b => b.setIcon('chevron-up').setTooltip('Move up').setDisabled(i <= 0).onClick(() => mv(-1)))
+      .addExtraButton(b => b.setIcon('chevron-down').setTooltip('Move down').setDisabled(i >= items.length - 1).onClick(() => mv(1)));
 
-    new Setting(c)
-      .addButton(b => b
-        .setButtonText('Add item')
-        .setCta()
-        .onClick(() => new CommandPicker(this.app, picked => {
-          items.push({ id: picked.id, icon: 'circle', label: picked.name });
-          this.save();
-          this.display();
-        }).open()))
-      .addButton(b => b
-        .setButtonText('Reset to defaults')
-        .setWarning()
-        .onClick(() => {
-          this.plugin.settings.dock.items    = JSON.parse(JSON.stringify(DOCK_DEFAULT));
-          this.plugin.settings.dock.overflow = [...OVERFLOW_DEFAULT];
-          this.save();
-          this.display();
-        }));
-
-    c.createEl('p', {
-      cls: 'setting-item-description',
-      text: 'Icon names are Lucide names — lucide.dev has the full list. An item whose command no longer exists is skipped rather than shown dead.',
+    const del = c.createEl('button', { cls: 'rb-danger-btn', text: this.armed ? 'Tap again to remove' : 'Remove from dock' });
+    del.addEventListener('click', () => {
+      if (!this.armed) {
+        this.armed = true; this.render();
+        setTimeout(() => { if (this.armed) { this.armed = false; this.render(); } }, 3500);
+        return;
+      }
+      const k = items.indexOf(item);
+      if (k >= 0) items.splice(k, 1);
+      tab.save();
+      this.armed = false;
+      this.close();
     });
+  }
+}
+
+class QuoteModal extends Modal {
+  constructor(app, plugin, q, done) {
+    super(app);
+    this.plugin = plugin; this.q = q; this.done = done;
+  }
+  onOpen()  { this.modalEl.addClass('rb-sheet'); this.render(); }
+  onClose() { this.plugin.persist(); this.plugin.refreshViews(); this.contentEl.empty(); this.done(); }
+
+  render() {
+    const { contentEl: c, q } = this;
+    c.empty();
+    this.titleEl.setText('Your quote');
+
+    const pv = c.createDiv({ cls: 'rb-quote-pv' });
+    const pt = pv.createDiv({ cls: 'rb-quote-pv-t' });
+    const pb = pv.createDiv({ cls: 'rb-quote-pv-b' });
+    const paint = () => { pt.setText(q.text || 'Your quote'); pb.setText(q.by ? `\u2014 ${q.by}` : ''); pv.toggleClass('is-empty', !q.text); };
+    paint();
+
+    const g = c.createDiv({ cls: 'rb-group' });
+    new Setting(g).setClass('rb-quote-text').setName('Quote').addTextArea(t => {
+      t.setPlaceholder('Type a quote you like').setValue(q.text || '')
+       .onChange(v => { q.text = v.trim(); paint(); });
+      t.inputEl.rows = 4;
+    });
+    new Setting(g).setName('Author').setDesc('Optional').addText(t => t
+      .setPlaceholder('Who said it').setValue(q.by || '')
+      .onChange(v => { q.by = v.trim(); paint(); }));
   }
 }

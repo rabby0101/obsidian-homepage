@@ -1,6 +1,6 @@
 # Homepage (Rabby)
 
-Native homepage view, a configurable mobile dock that replaces Obsidian's navbar, and a per-note bookmark button. Paints from a cached snapshot on the first frame; boot touches no network.
+Native homepage view with bookmarks, sections and a quote, plus a per-note bookmark button. Paints from a cached snapshot on the first frame; boot touches no network.
 
 Works on desktop and mobile.
 

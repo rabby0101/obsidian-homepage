@@ -762,37 +762,6 @@ class NewTileModal extends Modal {
 
 /* ── plugin ─────────────────────────────────────────────────────────── */
 
-/* ── custom dock ────────────────────────────────────────────────────── */
-
-/** Command picker for the settings tab. */
-class CommandPicker extends FuzzySuggestModal {
-  constructor(app, onPick) { super(app); this.onPick = onPick; this.setPlaceholder('Pick a command'); }
-  getItems()          { return this.app.commands.listCommands(); }
-  getItemText(c)      { return c.name; }
-  onChooseItem(c)     { this.onPick(c); }
-}
-
-const DOCK_DEFAULT = [
-  { id: 'app:go-back',                   icon: 'arrow-left',   label: 'Back'   },
-  { id: 'switcher:open',                 icon: 'search',       label: 'Search' },
-  { id: 'rabby-homepage:open',           icon: 'home',         label: 'Home', primary: true },
-  { id: 'rabby-task-manager:open-tasks', icon: 'check-circle', label: 'Tasks'  },
-  { overflow: true,                      icon: 'more-horizontal', label: 'More' },
-];
-
-/* Everything that doesn't earn a permanent slot lives behind More.
-   Settings is first on purpose — hiding the navbar hid Obsidian's only
-   route to it on mobile, and a dock you cannot open the settings from
-   is a dock you cannot fix. */
-const OVERFLOW_DEFAULT = [
-  'app:open-settings',
-  'file-explorer:new-file',
-  'command-palette:open',
-  'markdown:toggle-preview',
-  'app:go-forward',
-];
-
-const DOCK_VERSION = 3;
 
 const DEFAULTS = {
   snapshot: null,
@@ -814,7 +783,6 @@ const DEFAULTS = {
      centred, and the homepage is reached from the command palette or
      the ribbon. */
   homeButton: false,
-  dock: { enabled: false, labels: true, v: DOCK_VERSION, items: DOCK_DEFAULT, overflow: OVERFLOW_DEFAULT },
   quote: {
     enabled: true,
     text: 'Tell me and I forget, teach me and I may remember, involve me and I learn.',
@@ -863,6 +831,7 @@ module.exports = class HomepagePlugin extends Plugin {
       this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.decorateActiveView()));
       this.registerEvent(this.app.workspace.on('css-change', () => this.refreshViews()));
       this.registerEvent(this.app.workspace.on('file-open', (file) => {
+        this.applyDefaultMode(file);
         this.decorateActiveView();
       }));
       this.registerEvent(this.app.workspace.on('layout-change', () => {
@@ -1030,6 +999,29 @@ module.exports = class HomepagePlugin extends Plugin {
     this.paintBookmarkBtn(bm, view.file);
     this.placeBookmark(view, bm);
     this.paintMode(view, ovl.querySelector('.rb-mode'));
+  }
+
+  /* ── default view for every note ──────────────────────────────────
+     Obsidian's "Default view for new tabs" (Settings → Editor) only
+     applies to *new* tabs. On mobile one tab is reused for everything,
+     so after you edit one note every note opens in editing. This applies
+     that same Obsidian setting on every file open — no plugin setting.
+
+     Only acts when the setting is Reading view. Tap the pencil and the
+     note stays editable until you open another one; a brand-new empty
+     note is left in editing, since you made it to write in it. */
+
+  applyDefaultMode(file) {
+    if (this.app.vault.getConfig?.('defaultViewMode') !== 'preview') return;
+    if (file && file.stat && file.stat.size === 0) return;   // new, empty note
+
+    const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+    if (!view || view.getMode?.() !== 'source') return;
+
+    const state = view.getState();
+    if (state.mode === 'preview') return;
+    state.mode = 'preview';
+    view.setState(state, { history: false });
   }
 
   /** Shows the mode you'd switch *to*, not the one you're in — a button
@@ -1302,81 +1294,13 @@ module.exports = class HomepagePlugin extends Plugin {
       this.persist();
     }
 
-    const d = this.settings.dock;
-    if (!d) return;
-
-    if (!Array.isArray(d.overflow) || !d.overflow.length) d.overflow = [...OVERFLOW_DEFAULT];
-
-    /* v3: the custom dock is retired. Theme.css now styles Obsidian's
-       own navbar, which exists from the first frame and so cannot flash.
-       Turn the replacement off for anyone who had it on. */
-    if ((d.v || 1) < 3) {
-      d.enabled = false;
-      d.v = 3;
-      this.persist();
-    }
-
-    if ((d.v || 1) < 2) {
-      if (!d.items.some(i => i.overflow)) {
-        d.items.push({ overflow: true, icon: 'more-horizontal', label: 'More' });
-      }
-      d.v = DOCK_VERSION;
-      this.persist();
-    }
+    /* the custom dock ("Replace the mobile toolbar") was removed in v3.11 */
+    delete this.settings.dock;
   }
 
+  /* The custom dock was removed in v3.11; this only clears a leftover one. */
   mountDock() {
     this.unmountDock();
-    if (!Platform.isMobile || !this.settings.dock.enabled) return;
-
-    document.body.addClass('rb-dock-on');
-    const el = document.body.createDiv({ cls: 'rb-dock' });
-    this.dockEl = el;
-    el.toggleClass('no-labels', !this.settings.dock.labels);
-
-    for (const item of this.settings.dock.items) {
-      /* Skip commands that don't exist — a disabled plugin shouldn't
-         leave a dead button in the dock. Overflow items have no command
-         of their own, so they are exempt. */
-      if (!item.overflow && !this.app.commands.findCommand(item.id)) continue;
-
-      const b = el.createDiv({ cls: 'rb-dock-b' + (item.primary ? ' is-primary' : '') });
-      setIcon(b.createDiv({ cls: 'rb-dock-i' }), item.icon || 'circle');
-      if (this.settings.dock.labels && item.label) {
-        b.createDiv({ cls: 'rb-dock-l', text: item.label });
-      }
-      b.setAttribute('aria-label', item.label || item.id);
-
-      b.onclick = item.overflow
-        ? (ev) => this.showOverflow(ev)
-        : () => this.app.commands.executeCommandById(item.id);
-    }
-  }
-
-  showOverflow(ev) {
-    const m = new Menu();
-    let any = false;
-
-    for (const id of this.settings.dock.overflow || []) {
-      const cmd = this.app.commands.findCommand(id);
-      if (!cmd) continue;
-      any = true;
-      m.addItem(i => i
-        .setTitle(cmd.name)
-        .setIcon(cmd.icon || 'chevron-right')
-        .onClick(() => this.app.commands.executeCommandById(id)));
-    }
-
-    /* Never let this menu be empty — it is the escape hatch back to
-       Settings when the dock itself needs fixing. */
-    if (!any) {
-      m.addItem(i => i
-        .setTitle('Settings')
-        .setIcon('settings')
-        .onClick(() => this.app.commands.executeCommandById('app:open-settings')));
-    }
-
-    m.showAtMouseEvent(ev);
   }
 
   unmountDock() {
@@ -1660,71 +1584,6 @@ class HomepageSettings extends PluginSettingTab {
       cls: 'rb-group-note',
       text: 'A note appears in a section when its frontmatter has type: Widget and Class: [[<Class value>]]. Tap a section to edit it.',
     });
-
-    /* Dock */
-    const dock = this.group(c, 'Dock');
-    new Setting(dock)
-      .setName('Replace the mobile toolbar')
-      .setDesc('Mobile only. Turn it off and Obsidian’s own bar comes straight back.')
-      .addToggle(t => t
-        .setValue(S.dock.enabled)
-        .onChange(v => { S.dock.enabled = v; this.save(); this.display(); }));
-
-    if (!S.dock.enabled) return;
-
-    new Setting(dock)
-      .setName('Show labels')
-      .addToggle(t => t
-        .setValue(S.dock.labels)
-        .onChange(v => { S.dock.labels = v; this.save(); }));
-
-    /* Dock items */
-    const items = S.dock.items;
-    const di = this.group(c, 'Dock items',
-      'Icon names are Lucide names (lucide.dev). An item whose command no longer exists is skipped.');
-    items.forEach(item => {
-      const cmd = item.overflow ? null : this.app.commands.findCommand(item.id);
-      const sub = item.overflow ? 'Opens the overflow menu'
-        : (cmd ? cmd.name : `⚠ command not found: ${item.id}`);
-      const { right } = this.listRow(di, {
-        icon: item.icon || 'circle', title: item.label || item.id, sub,
-        onClick: () => new DockItemModal(this.app, this, item, () => this.display()).open(),
-      });
-      if (item.primary) right.createSpan({ cls: 'rb-row-badge', text: 'Primary' });
-      this.chevron(right);
-    });
-    this.addRow(di, 'Add item', () => new CommandPicker(this.app, picked => {
-      items.push({ id: picked.id, icon: 'circle', label: picked.name });
-      this.save(); this.display();
-    }).open());
-
-    /* Overflow menu */
-    const of = S.dock.overflow;
-    const og = this.group(c, 'Overflow menu',
-      'What the More button opens. Keep Settings in here: with the native toolbar hidden it is your only way to it on mobile.');
-    of.forEach((id, i) => {
-      const cmd = this.app.commands.findCommand(id);
-      const { right } = this.listRow(og, {
-        icon: 'terminal-square', title: cmd ? cmd.name : id,
-        sub: cmd ? '' : '⚠ command not found',
-      });
-      const ctl = right.createDiv({ cls: 'rb-row-ctl rb-row-btns' });
-      new ExtraButtonComponent(ctl).setIcon('chevron-up').setTooltip('Move up').setDisabled(i === 0)
-        .onClick(() => { of.splice(i - 1, 0, of.splice(i, 1)[0]); this.save(); this.display(); });
-      new ExtraButtonComponent(ctl).setIcon('chevron-down').setTooltip('Move down').setDisabled(i === of.length - 1)
-        .onClick(() => { of.splice(i + 1, 0, of.splice(i, 1)[0]); this.save(); this.display(); });
-      new ExtraButtonComponent(ctl).setIcon('x').setTooltip('Remove')
-        .onClick(() => { of.splice(i, 1); this.save(); this.display(); });
-    });
-    this.addRow(og, 'Add to overflow', () => new CommandPicker(this.app, picked => {
-      of.push(picked.id); this.save(); this.display();
-    }).open());
-
-    this.armedLink(c, 'dock-reset', 'Reset dock to defaults', 'Tap again to reset the dock', () => {
-      S.dock.items    = JSON.parse(JSON.stringify(DOCK_DEFAULT));
-      S.dock.overflow = [...OVERFLOW_DEFAULT];
-      this.save(); this.display();
-    }, () => this.display());
   }
 }
 
@@ -1847,71 +1706,6 @@ class SectionModal extends Modal {
       const k = secs.indexOf(s);
       if (k >= 0) secs.splice(k, 1);
       delete (P.settings.open || {})[s.id];
-      this.armed = false;
-      this.close();
-    });
-  }
-}
-
-class DockItemModal extends Modal {
-  constructor(app, tab, item, done) {
-    super(app);
-    this.tab = tab; this.item = item; this.done = done; this.armed = false;
-  }
-  onOpen()  { this.modalEl.addClass('rb-sheet'); this.render(); }
-  onClose() { this.contentEl.empty(); this.done(); }
-
-  render() {
-    if (!this.modalEl.isConnected) return;
-    const { contentEl: c, item, tab } = this;
-    const items = tab.plugin.settings.dock.items;
-    c.empty();
-    this.titleEl.setText('Edit dock item');
-
-    const pv = c.createDiv({ cls: 'rb-sheet-pv' });
-    const pic = pv.createDiv({ cls: 'rb-row-ic rb-sheet-pv-ic' });
-    const pname = pv.createDiv({ cls: 'rb-sheet-pv-n' });
-    const paint = () => { pic.empty(); setIcon(pic, item.icon || 'circle'); pname.setText(item.label || item.id); };
-    paint();
-
-    const g = c.createDiv({ cls: 'rb-group' });
-    new Setting(g).setName('Label').addText(t => t
-      .setPlaceholder('Label').setValue(item.label || '')
-      .onChange(v => { item.label = v; paint(); tab.save(); }));
-    new Setting(g).setName('Icon').setDesc('Lucide name').addText(t => t
-      .setPlaceholder('circle').setValue(item.icon || '')
-      .onChange(v => { item.icon = v.trim(); paint(); tab.save(); }));
-    if (!item.overflow) {
-      const cmd = this.app.commands.findCommand(item.id);
-      new Setting(g).setName('Command').setDesc(cmd ? cmd.name : `⚠ not found: ${item.id}`)
-        .addButton(b => b.setButtonText('Change').onClick(() => new CommandPicker(this.app, picked => {
-          item.id = picked.id;
-          if (!item.label) item.label = picked.name;
-          tab.save(); this.render();
-        }).open()));
-    }
-    new Setting(g).setName('Primary (raised) item').addToggle(t => t
-      .setValue(!!item.primary)
-      .onChange(v => { items.forEach(x => delete x.primary); if (v) item.primary = true; tab.save(); }));
-
-    const i = items.indexOf(item);
-    c.createDiv({ cls: 'rb-group-title', text: 'Order' });
-    const og = c.createDiv({ cls: 'rb-group' });
-    const mv = d => { items.splice(i + d, 0, items.splice(i, 1)[0]); tab.save(); this.render(); };
-    new Setting(og).setName(`Position ${i + 1} of ${items.length}`)
-      .addExtraButton(b => b.setIcon('chevron-up').setTooltip('Move up').setDisabled(i <= 0).onClick(() => mv(-1)))
-      .addExtraButton(b => b.setIcon('chevron-down').setTooltip('Move down').setDisabled(i >= items.length - 1).onClick(() => mv(1)));
-
-    const del = c.createEl('button', { cls: 'rb-danger-btn', text: this.armed ? 'Tap again to remove' : 'Remove from dock' });
-    del.addEventListener('click', () => {
-      if (!this.armed) {
-        this.armed = true; this.render();
-        setTimeout(() => { if (this.armed) { this.armed = false; this.render(); } }, 3500);
-        return;
-      }
-      const k = items.indexOf(item);
-      if (k >= 0) items.splice(k, 1);
-      tab.save();
       this.armed = false;
       this.close();
     });

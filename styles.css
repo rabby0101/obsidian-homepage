@@ -1,0 +1,818 @@
+/* ─────────────────────────────────────────────────────────────────────
+   Homepage (Rabby) — v1.0
+
+   Variables live on `body`, not :root — Obsidian defines its theme
+   variables on body.theme-dark / body.theme-light, so anything declared
+   at :root that references them resolves to nothing and gets dropped.
+   (Learned the hard way on the task manager.)
+
+   Every card and row has a fixed aspect ratio or fixed height. Nothing
+   in this file allows a late-arriving image to change a layout box.
+   ───────────────────────────────────────────────────────────────────── */
+
+body {
+  --hp-c1:   color-mix(in srgb, var(--text-normal) 6%,  var(--background-primary));
+  --hp-c2:   color-mix(in srgb, var(--text-normal) 11%, var(--background-primary));
+  --hp-c3:   color-mix(in srgb, var(--text-normal) 17%, var(--background-primary));
+  --hp-fg:   var(--text-normal);
+  --hp-dim:  var(--text-muted);
+  --hp-r:    16px;
+  --hp-ease: cubic-bezier(.32, .72, 0, 1);
+}
+
+@supports not (color: color-mix(in srgb, red 50%, blue)) {
+  body {
+    --hp-c1: rgba(136,136,156,.09);
+    --hp-c2: rgba(136,136,156,.17);
+    --hp-c3: rgba(136,136,156,.26);
+  }
+}
+
+.hp {
+  padding: 18px 14px calc(40px + env(safe-area-inset-bottom));
+  font-family: var(--font-interface);
+  color: var(--hp-fg);
+  box-sizing: border-box;
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── header ──────────────────────────────────────────────────────── */
+
+.hp-head { padding: 4px 2px 18px; }
+.hp-greet {
+  font-size: .68rem; font-weight: 700;
+  letter-spacing: .15em; text-transform: uppercase;
+  color: var(--hp-dim);
+}
+.hp-date {
+  margin-top: 5px;
+  font-size: 1.55rem; font-weight: 750;
+  letter-spacing: -.03em; line-height: 1.1;
+}
+
+/* ── quote ───────────────────────────────────────────────────────── */
+
+.hp-quote {
+  margin-bottom: 20px; padding: 15px 17px;
+  border-radius: var(--hp-r);
+  background: var(--hp-c1);
+}
+.hp-quote-t { font-size: .92rem; line-height: 1.5; }
+.hp-quote-b { margin-top: 7px; font-size: .78rem; font-style: italic; color: var(--hp-dim); }
+
+/* ── section ─────────────────────────────────────────────────────── */
+
+.hp-sec { margin-bottom: 12px; }
+
+.hp-sec-h {
+  display: flex; align-items: center; gap: 10px;
+  padding: 13px 15px;
+  border-radius: var(--hp-r);
+  background: rgba(var(--hp-rgb), .1);
+  user-select: none;
+  transition: background .16s var(--hp-ease);
+}
+.hp-sec-h.is-toggle { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.hp-sec-h.is-toggle:hover  { background: rgba(var(--hp-rgb), .16); }
+.hp-sec-h.is-toggle:active { transform: scale(.995); }
+
+.hp-sec-i { display: flex; color: rgb(var(--hp-rgb)); }
+.hp-sec-i svg { width: 17px; height: 17px; }
+
+.hp-sec-t { flex: 1; font-size: .94rem; font-weight: 650; letter-spacing: -.01em; }
+
+.hp-sec-n {
+  min-width: 20px; padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(var(--hp-rgb), .2);
+  color: rgb(var(--hp-rgb));
+  font-size: .7rem; font-weight: 700; text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.hp-sec-c { display: flex; color: var(--hp-dim); transition: transform .2s var(--hp-ease); }
+.hp-sec-c svg { width: 15px; height: 15px; }
+.hp-sec.is-open .hp-sec-c { transform: rotate(180deg); }
+
+.hp-sec-b { display: none; padding-top: 12px; }
+.hp-sec.is-open .hp-sec-b { display: block; }
+
+/* bookmarks section has no toggle — its body is always out */
+.hp-bm .hp-grid, .hp-bm .hp-more, .hp-bm .hp-empty { margin-top: 12px; }
+
+/* Bookmarks is the one section without a fixed identity colour, so it
+   follows Obsidian's accent. The class sections below keep their own
+   colours, matched to your callouts. */
+.hp-bm .hp-sec-h { background: color-mix(in srgb, var(--interactive-accent) 12%, transparent); }
+.hp-bm .hp-sec-i { color: var(--interactive-accent); }
+.hp-bm .hp-sec-n {
+  background: color-mix(in srgb, var(--interactive-accent) 22%, transparent);
+  color: var(--interactive-accent);
+}
+
+/* ── grids ───────────────────────────────────────────────────────── */
+
+.hp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 11px;
+}
+/* bookmarks: exactly two columns, so the preview is always 2×2 */
+.hp-grid-2 { grid-template-columns: 1fr 1fr; }
+
+/* ── card ────────────────────────────────────────────────────────── */
+
+.hp-card {
+  position: relative;
+  aspect-ratio: 4 / 3;            /* box is fixed before any image loads */
+  border-radius: var(--hp-r);
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid var(--background-modifier-border);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform .18s var(--hp-ease), border-color .18s var(--hp-ease);
+}
+.hp-card:hover  { border-color: var(--interactive-accent); }
+.hp-card:active { transform: scale(.97); }
+
+/* the media box is its own colour until an image arrives, so a card is
+   never an empty grey hole and never changes size when one does */
+.hp-card-m {
+  position: absolute; inset: 0;
+  background: hsl(var(--hp-hue, 220) 28% 22%);
+}
+body.theme-light .hp-card-m { background: hsl(var(--hp-hue, 220) 42% 82%); }
+
+.hp-card-m img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover; display: block;
+  opacity: 0;
+  transition: opacity .25s ease;
+}
+.hp-card-m.is-loaded img { opacity: 1; }
+
+.hp-card-m::after {
+  content: ''; position: absolute; inset: 0;
+  pointer-events: none;
+  background: linear-gradient(to top,
+    rgba(0,0,0,.74) 0%, rgba(0,0,0,.3) 40%, rgba(0,0,0,0) 70%);
+}
+
+.hp-card-t {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  z-index: 1;
+  padding: 9px 11px 10px;
+  font-size: 12.5px; font-weight: 600; line-height: 1.3;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,.6);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── expand button ───────────────────────────────────────────────── */
+
+.hp-more {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 11px 16px;
+  border-radius: 999px;
+  background: var(--hp-c2);
+  color: var(--hp-dim);
+  font-size: .8rem; font-weight: 600;
+  cursor: pointer; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background .16s var(--hp-ease);
+}
+.hp-more:hover  { background: var(--hp-c3); color: var(--hp-fg); }
+.hp-more:active { transform: scale(.98); }
+.hp-more-c { display: flex; transition: transform .2s var(--hp-ease); }
+.hp-more-c svg { width: 15px; height: 15px; }
+.hp-sec.is-open .hp-more-c { transform: rotate(180deg); }
+
+/* ── list ────────────────────────────────────────────────────────── */
+
+.hp-list { display: none; margin-top: 10px; }
+.hp-sec.is-open .hp-list { display: block; }
+
+.hp-row {
+  display: flex; align-items: center; gap: 12px;
+  height: 58px;                    /* fixed, so the list never reflows */
+  padding: 0 11px;
+  border-radius: 12px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background .15s var(--hp-ease);
+}
+.hp-row:hover { background: var(--hp-c2); }
+
+.hp-row-m {
+  position: relative;
+  flex: 0 0 auto;
+  width: 40px; height: 40px;
+  border-radius: 10px; overflow: hidden;
+  background: hsl(var(--hp-hue, 220) 28% 24%);
+}
+body.theme-light .hp-row-m { background: hsl(var(--hp-hue, 220) 42% 84%); }
+.hp-row-m img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%; object-fit: cover; display: block;
+  opacity: 0; transition: opacity .25s ease;
+}
+.hp-row-m.is-loaded img { opacity: 1; }
+
+.hp-row-t { flex: 1; min-width: 0; }
+.hp-row-n {
+  font-size: .87rem; font-weight: 550;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hp-row-p {
+  margin-top: 2px;
+  font-size: .7rem; color: var(--text-faint);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ── empty ───────────────────────────────────────────────────────── */
+
+.hp-empty {
+  padding: 22px; text-align: center;
+  font-size: .82rem; color: var(--text-faint);
+}
+
+/* ── floating controls over the note ─────────────────────────────── */
+/* An absolutely-positioned layer inside .view-content. The header row
+   could only ever hold one cluster in one corner; this can put back on
+   the left, forward on the right, and the bookmark down on the banner.
+
+   .view-content does not scroll — the preview/editor inside it does —
+   so absolute here behaves like fixed, without fixed's habit of being
+   trapped by an ancestor with a transform. */
+
+.rb-ovl {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  pointer-events: none;      /* the note scrolls underneath */
+}
+.rb-ovl > * { pointer-events: auto; position: absolute; }
+
+.rb-fab {
+  width: 38px; height: 38px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: rgba(22, 22, 24, .5);
+  -webkit-backdrop-filter: blur(14px) saturate(170%);
+  backdrop-filter: blur(14px) saturate(170%);
+  border: 1px solid rgba(255, 255, 255, .13);
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .32);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform .15s var(--hp-ease), background .15s var(--hp-ease);
+}
+.rb-fab:active { transform: scale(.88); }
+.rb-fab svg { width: 19px; height: 19px; }
+
+body.theme-light .rb-fab {
+  background: rgba(255, 255, 255, .62);
+  border-color: rgba(0, 0, 0, .1);
+  color: var(--text-normal);
+}
+
+/* top row — clears the status bar via the strip Theme.css defines */
+.rb-back { top: calc(var(--status-strip, 24px) + 8px); left: 11px;  }
+.rb-fwd  { top: calc(var(--status-strip, 24px) + 8px); right: 11px; }
+
+/* bookmark: no banner → top row, tucked inside forward */
+.rb-bm-btn { top: calc(var(--status-strip, 24px) + 8px); right: 58px; }
+
+/* bookmark: banner present → sits on the banner, bottom right.
+   `top` is set inline from the measured banner height. */
+.rb-bm-btn.is-on-banner { right: 11px; }
+
+.rb-bm-btn.is-bookmarked { color: var(--interactive-accent); }
+
+/* edit / reading toggle — bottom right, above the dock */
+.rb-mode {
+  bottom: calc(86px + env(safe-area-inset-bottom));
+  right: 14px;
+  width: 44px; height: 44px;
+}
+.rb-mode svg { width: 21px; height: 21px; }
+
+/* clears the native bar on mobile; sits lower on desktop, which has none */
+body:not(.is-mobile) .rb-mode { bottom: 20px; }
+
+/* ── home button ─────────────────────────────────────────────────── */
+/* Lives outside the navbar on purpose — see mountHome(). */
+
+.rb-home {
+  position: fixed;
+  /* Left edge — the navbar sits on the right, so the two are at
+     opposite ends of the same row rather than competing for the corner.
+     Same bottom offset and height as the navbar, so they share a
+     baseline and a centreline. */
+  /* 14px, matching .mobile-navbar's gap from the right edge in
+     Theme.css — change both together or they stop being symmetrical. */
+  left: 14px;
+  right: auto;
+  bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  z-index: 45;
+
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+
+  /* Obsidian's own accent, so changing it in Appearance changes this
+     too. --text-on-accent is the matching foreground Obsidian computes
+     for whatever accent you pick. */
+  /* Frosted, but still tinted with the accent rather than plain white
+     glass — otherwise it stops reading as the home button and becomes
+     just another grey circle next to the dock. 38% accent is enough to
+     keep the colour identity while the blur does the work.
+
+     The icon goes to --text-normal, not --text-on-accent: on a
+     translucent fill the background behind shows through, so the
+     foreground Obsidian computes for a *solid* accent is no longer the
+     one that stays legible. */
+  background: color-mix(in srgb, var(--interactive-accent) 38%, transparent);
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 55%, transparent);
+  color: var(--text-normal);
+  box-shadow:
+    0 8px 28px -6px color-mix(in srgb, var(--interactive-accent) 45%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, .18);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform .15s var(--hp-ease);
+}
+.rb-home:active { transform: scale(.88); }
+
+/* No color-mix: fall back to the solid accent rather than leaving the
+   background undefined and the button invisible. */
+@supports not (background: color-mix(in srgb, red 50%, transparent)) {
+  .rb-home {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border-color: var(--interactive-accent);
+  }
+}
+
+/* No backdrop blur: a 38% fill with nothing frosting the content behind
+   it would leave note text showing straight through the button. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .rb-home {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+  }
+}
+
+/* Out of the way while a sidebar drawer is open. Set from JS off
+   Obsidian's own leftSplit/rightSplit state — see alignHome(). */
+.rb-home.is-hidden { display: none !important; }
+
+/* Desktop home button: a fab inside the note overlay, bottom left, level
+   with the edit/reading toggle (same 44px, same 20px from the bottom). */
+.rb-home-d {
+  left: 14px;
+  bottom: calc(86px + env(safe-area-inset-bottom));
+  width: 44px; height: 44px;
+  background: color-mix(in srgb, var(--interactive-accent) 38%, transparent);
+  border-color: color-mix(in srgb, var(--interactive-accent) 55%, transparent);
+  color: var(--text-normal);
+}
+body:not(.is-mobile) .rb-home-d { bottom: 20px; }
+.rb-home-d svg { width: 21px; height: 21px; }
+
+.rb-home svg { width: 28px; height: 28px; }
+
+/* the mode toggle stays where it was — above the row, right-hand side */
+body.is-mobile .rb-mode { right: 14px; bottom: calc(86px + env(safe-area-inset-bottom, 0px)); }
+
+/* ── mobile: class sections scroll sideways ──────────────────────── */
+/* A phone-width column can only fit one or two cards per row, so a
+   section with seven of them becomes a wall you have to scroll past to
+   reach the next section. Sideways keeps every section one glance tall
+   and every card reachable with a thumb.
+
+   The bookmarks grid is exempt — its 2×2 preview is the point. */
+
+@media (max-width: 600px) {
+  .hp-grid:not(.hp-grid-2) {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x proximity;
+    /* bleed to the screen edges so the strip reads as continuing */
+    margin: 0 -14px;
+    padding: 2px 14px 6px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .hp-grid:not(.hp-grid-2)::-webkit-scrollbar { display: none; }
+
+  .hp-grid:not(.hp-grid-2) > .hp-card {
+    flex: 0 0 auto;
+    width: 184px;
+    scroll-snap-align: start;
+  }
+  .hp-grid:not(.hp-grid-2) > .hp-card .hp-card-t {
+    padding: 8px 10px 9px;
+    font-size: 12.5px;
+  }
+
+  /* the 2×2 preview comes down a little too */
+  .hp-grid-2 { gap: 9px; }
+  .hp-grid-2 > .hp-card .hp-card-t { font-size: 11.5px; }
+}
+
+/* ── touch ───────────────────────────────────────────────────────── */
+
+@media (hover: none), (pointer: coarse) {
+  .hp-card:hover { border-color: var(--background-modifier-border); }
+  .hp-row:hover  { background: transparent; }
+  .hp-sec-h.is-toggle:hover { background: rgba(var(--hp-rgb), .1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hp * { transition: none !important; }
+}
+
+
+
+/* ── settings: sections editor ───────────────────────────────────── */
+
+.rb-sections .rb-sec-row { padding-bottom: 4px; border-top: 1px solid var(--background-modifier-border); }
+.rb-sections .rb-sec-row .setting-item-info { flex: 0 0 auto; margin-right: 6px; }
+.rb-sections .rb-sec-ico { display: inline-flex; align-items: center; }
+.rb-sections .rb-sec-ico svg { width: 20px; height: 20px; }
+.rb-sections .rb-sec-row input[type="text"] { width: 150px; }
+
+.rb-sections .rb-sec-sub { border-top: none; padding-top: 0; padding-bottom: 12px; }
+.rb-sections .rb-sec-sub .setting-item-description { font-size: var(--font-ui-smaller); }
+.rb-sections .rb-sec-sub input[type="text"] { width: 150px; }
+
+@media (max-width: 600px) {
+  .rb-sections .rb-sec-row,
+  .rb-sections .rb-sec-sub { flex-wrap: wrap; }
+  .rb-sections .rb-sec-row input[type="text"],
+  .rb-sections .rb-sec-sub input[type="text"] { width: 120px; }
+}
+
+
+/* ── open tabs panel (left sidebar) ──────────────────────────────── */
+.rb-tabs { padding: 10px 8px 16px; font-family: var(--font-interface); }
+.rb-tabs-h {
+  padding: 2px 10px 8px;
+  font-size: .68rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.rb-tabs-g { padding: 10px 10px 4px; font-size: .72rem; color: var(--text-faint); }
+.rb-tabs-empty { padding: 18px 10px; font-size: .85rem; color: var(--text-faint); }
+
+.rb-tabs-row {
+  position: relative;
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px; margin-bottom: 2px;
+  border-radius: 8px; cursor: pointer;
+  color: var(--text-normal);
+  transition: background .12s ease;
+}
+.rb-tabs-row:hover { background: var(--background-modifier-hover); }
+.rb-tabs-row.is-active {
+  background: color-mix(in srgb, var(--interactive-accent) 16%, transparent);
+}
+.rb-tabs-row.is-active::before {
+  content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px;
+  border-radius: 3px; background: var(--interactive-accent);
+}
+.rb-tabs-i { display: flex; flex: 0 0 auto; color: var(--text-muted); }
+.rb-tabs-row.is-active .rb-tabs-i { color: var(--interactive-accent); }
+.rb-tabs-i svg { width: 16px; height: 16px; }
+.rb-tabs-t { flex: 1; min-width: 0; line-height: 1.3; }
+.rb-tabs-n { font-size: .88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rb-tabs-p { font-size: .72rem; color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rb-tabs-pin { display: flex; color: var(--text-faint); }
+.rb-tabs-pin svg { width: 12px; height: 12px; }
+.rb-tabs-x {
+  display: flex; flex: 0 0 auto; padding: 3px; border-radius: 5px;
+  color: var(--text-muted); opacity: 0;
+}
+.rb-tabs-row:hover .rb-tabs-x { opacity: 1; }
+.rb-tabs-x:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.rb-tabs-x svg { width: 14px; height: 14px; }
+
+
+/* ── open tabs panel — styled ────────────────────────────────────── */
+.rb-tabs { padding: 14px 10px 18px; }
+.rb-tabs-h {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 2px 8px 12px;
+  font-size: .72rem; letter-spacing: .14em;
+}
+.rb-tabs-count {
+  min-width: 22px; padding: 1px 8px; border-radius: 999px;
+  font-size: .72rem; font-weight: 700; letter-spacing: 0; text-align: center;
+  color: var(--interactive-accent);
+  background: color-mix(in srgb, var(--interactive-accent) 16%, transparent);
+}
+.rb-tabs-g { padding: 12px 8px 6px; letter-spacing: .08em; text-transform: uppercase; font-size: .66rem; font-weight: 700; }
+
+.rb-tabs-row {
+  gap: 12px; padding: 8px 10px; margin-bottom: 4px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  transition: background .15s ease, border-color .15s ease, transform .15s ease;
+}
+.rb-tabs-row:hover { background: color-mix(in srgb, rgb(var(--tab-rgb)) 9%, transparent); }
+.rb-tabs-row:active { transform: scale(.985); }
+.rb-tabs-row.is-active {
+  background: color-mix(in srgb, rgb(var(--tab-rgb)) 15%, transparent);
+  border-color: color-mix(in srgb, rgb(var(--tab-rgb)) 38%, transparent);
+  box-shadow: 0 6px 18px -10px rgb(var(--tab-rgb));
+}
+.rb-tabs-row.is-active::before { display: none; }
+
+.rb-tabs-i {
+  width: 32px; height: 32px; border-radius: 10px;
+  align-items: center; justify-content: center;
+  color: rgb(var(--tab-rgb));
+  background: rgba(var(--tab-rgb), .15);
+}
+.rb-tabs-row.is-active .rb-tabs-i { color: #fff; background: rgb(var(--tab-rgb)); }
+.rb-tabs-i svg { width: 17px; height: 17px; }
+.rb-tabs-n { font-size: .9rem; font-weight: 560; }
+.rb-tabs-p { margin-top: 1px; }
+.rb-tabs-pin { color: rgb(var(--tab-rgb)); }
+.rb-tabs-x { padding: 4px; border-radius: 7px; }
+
+
+/* ── open tabs panel — colourful pills, all together ─────────────── */
+.rb-tabs-cloud { display: flex; flex-wrap: wrap; gap: 8px; padding: 2px 4px; }
+
+.rb-tabs-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  max-width: 100%;
+  padding: 6px 8px 6px 11px; border-radius: 999px;
+  font-size: .84rem; font-weight: 560; line-height: 1.25;
+  color: hsl(var(--tab-h) 85% 74%);
+  background: hsl(var(--tab-h) 60% 55% / .16);
+  border: 1px solid hsl(var(--tab-h) 60% 60% / .32);
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, transform .15s ease;
+}
+body.theme-light .rb-tabs-pill {
+  color: hsl(var(--tab-h) 60% 30%);
+  background: hsl(var(--tab-h) 75% 60% / .2);
+  border-color: hsl(var(--tab-h) 60% 45% / .35);
+}
+.rb-tabs-pill:hover { background: hsl(var(--tab-h) 60% 55% / .28); }
+.rb-tabs-pill:active { transform: scale(.97); }
+
+.rb-tabs-pill.is-active {
+  color: #fff;
+  background: hsl(var(--tab-h) 62% 50%);
+  border-color: hsl(var(--tab-h) 70% 62%);
+  box-shadow: 0 6px 16px -8px hsl(var(--tab-h) 80% 55%);
+}
+
+/* the pill owns its colours now; neutralise the earlier row styling */
+.rb-tabs-pill .rb-tabs-i,
+.rb-tabs-pill.is-active .rb-tabs-i {
+  width: auto; height: auto; border-radius: 0; background: none;
+  color: inherit;
+}
+.rb-tabs-pill .rb-tabs-i svg { width: 14px; height: 14px; }
+.rb-tabs-pill .rb-tabs-n {
+  min-width: 0; max-width: 22ch;
+  font-size: inherit; font-weight: inherit;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rb-tabs-pill .rb-tabs-pin { color: inherit; opacity: .8; }
+.rb-tabs-pill .rb-tabs-x {
+  padding: 2px; border-radius: 50%;
+  color: inherit; opacity: .45;
+}
+.rb-tabs-pill:hover .rb-tabs-x { opacity: .9; }
+.rb-tabs-pill .rb-tabs-x:hover { background: rgba(255,255,255,.2); }
+.rb-tabs-pill .rb-tabs-x svg { width: 12px; height: 12px; }
+
+/* ── open tabs panel — simple: flat pills, no glow ───────────────── */
+.rb-tabs-pill {
+  box-shadow: none;
+  border: none;
+  padding: 6px 8px 6px 11px;
+  background: hsl(var(--tab-h) 55% 55% / .15);
+  transition: background .12s ease;
+}
+body.theme-light .rb-tabs-pill { border: none; background: hsl(var(--tab-h) 70% 60% / .18); }
+.rb-tabs-pill:hover { background: hsl(var(--tab-h) 55% 55% / .25); }
+.rb-tabs-pill:active { transform: none; }
+.rb-tabs-pill.is-active {
+  box-shadow: none;
+  border: none;
+  background: hsl(var(--tab-h) 55% 48%);
+}
+
+/* ── homepage tiles: pocket folder (reference-exact) ─────────────── */
+.hp-card {
+  position: relative;
+  container-type: inline-size;
+  overflow: visible; background: none; border: none;
+  aspect-ratio: 1 / 1;
+  --pk-back:  hsl(var(--hp-hue,220) 3% 74%);
+  --pk-paper: #ffffff;
+  --pk-paper2:#e7e4db;
+  --pk-ink:   #2f2e2b;
+  --pk-sub:   #9b978e;
+  transition: transform .18s var(--hp-ease), filter .18s var(--hp-ease);
+}
+body.theme-dark .hp-card {
+  --pk-back:  hsl(var(--hp-hue,220) 6% 36%);
+  --pk-paper: #d2d0c9;
+  --pk-paper2:#a9a69e;
+  --pk-ink:   #f1efe9;
+  --pk-sub:   #a8a49b;
+}
+.hp-card:hover { border: none; transform: translateY(-2px); }
+
+/* back panel */
+.hp-card::before {
+  content: ''; position: absolute; inset: 0;
+  border-radius: 10cqw;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--pk-back) 88%, #000) 0, var(--pk-back) 14%, var(--pk-back) 100%);
+  box-shadow: inset 0 .8cqw 1.4cqw rgba(0,0,0,.10), 0 .6cqw 1cqw rgba(70,55,30,.10), 0 4.5cqw 5cqw rgba(70,55,30,.14);
+}
+body.theme-dark .hp-card::before { box-shadow: inset 0 .8cqw 1.4cqw rgba(0,0,0,.2), 0 4.5cqw 5cqw rgba(0,0,0,.35); }
+
+/* the two sheets of paper: .hp-card-m is just their holder now */
+.hp-card-m { position: absolute; inset: 0; background: none; border: none; border-radius: 0; overflow: visible; transform: none; box-shadow: none; }
+.hp-card-m img { display: none; }
+.hp-card-m::before, .hp-card-m::after { content: ''; position: absolute; display: block; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; transition: transform .2s var(--hp-ease); }
+.hp-card-m::before {          /* second sheet, behind */
+  left: 13%; right: 7.5%; top: 8%; bottom: 62%;
+  border-radius: 3.6cqw 3.6cqw 0 0;
+  background: var(--pk-paper2);
+  transform: rotate(1.1deg);
+  transform-origin: 50% 100%;
+}
+.hp-card-m::after {           /* front sheet */
+  left: 10.3%; right: 10.2%; top: 12%; bottom: 60%;
+  border-radius: 3.2cqw 3.2cqw 0 0;
+  background: var(--pk-paper);
+  box-shadow: 0 -.3cqw 1cqw rgba(0,0,0,.06);
+}
+.hp-card:hover .hp-card-m::after  { transform: translateY(-2.5cqw); }
+.hp-card:hover .hp-card-m::before { transform: rotate(1.1deg) translateY(-2cqw); }
+
+/* front of the pocket: slightly translucent, light centre, darker left / right / bottom */
+.hp-card::after {
+  content: ''; position: absolute; inset: 0;
+  border-radius: 0 0 10cqw 10cqw;
+  clip-path: polygon(0.0% 24.7%, 0.2% 23.5%, 0.8% 22.3%, 1.6% 21.5%, 2.8% 20.9%, 4.0% 20.7%, 46.0% 20.7%, 46.8% 20.8%, 47.7% 20.9%, 48.5% 21.1%, 49.3% 21.4%, 50.2% 21.8%, 51.0% 22.2%, 51.8% 22.7%, 52.7% 23.3%, 53.5% 23.8%, 54.3% 24.4%, 55.2% 25.0%, 56.0% 25.6%, 56.8% 26.3%, 57.7% 26.9%, 58.5% 27.5%, 59.3% 28.0%, 60.2% 28.6%, 61.0% 29.1%, 61.8% 29.5%, 62.7% 29.9%, 63.5% 30.2%, 64.3% 30.4%, 65.2% 30.5%, 66.0% 30.6%, 100.0% 30.6%, 100.0% 100.0%, 0.0% 100.0%);
+  background:
+    radial-gradient(ellipse 70% 72% at 50% 38%, rgba(255,255,255,.60), rgba(255,255,255,0) 78%),
+    linear-gradient(180deg, rgba(253,251,246,.58) 0%, rgba(247,244,236,.60) 60%, rgba(240,236,226,.68) 100%);
+  -webkit-backdrop-filter: blur(12px) saturate(1.15); backdrop-filter: blur(12px) saturate(1.15);
+  box-shadow:
+    inset 4.5cqw 0 4cqw -3cqw rgba(125,112,88,.24),
+    inset -4.5cqw 0 4cqw -3cqw rgba(125,112,88,.24),
+    inset 0 -5cqw 4.5cqw -3.5cqw rgba(125,112,88,.26),
+    inset 0 -.35cqw 0 rgba(255,255,255,.9);
+}
+body.theme-dark .hp-card::after {
+  background:
+    radial-gradient(ellipse 70% 72% at 50% 38%, rgba(255,255,255,.22), rgba(255,255,255,0) 78%),
+    linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.08));
+  box-shadow:
+    inset 4.5cqw 0 4cqw -3cqw rgba(0,0,0,.30),
+    inset -4.5cqw 0 4cqw -3cqw rgba(0,0,0,.30),
+    inset 0 -5cqw 4.5cqw -3.5cqw rgba(0,0,0,.34),
+    inset 0 1px 0 rgba(255,255,255,.14),
+    inset 0 -.35cqw 0 rgba(255,255,255,.14);
+}
+
+/* content on the front */
+.hp-card-i {
+  position: absolute; z-index: 1; left: 10%; top: 29%;
+  font-size: 13.5cqw; line-height: 1;
+  display: flex; align-items: center; color: var(--pk-sub);
+}
+.hp-card-i .svg-icon { width: 13cqw; height: 13cqw; stroke-width: 1.6; }
+.hp-card .hp-card-t {
+  position: absolute; z-index: 1; left: 10%; right: 10%; top: 45%; bottom: auto; height: auto;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  padding: 0 !important;
+  font-size: 9.4cqw !important; font-weight: 700; letter-spacing: -.015em; line-height: 1.17;
+  color: var(--pk-ink); text-shadow: none;
+}
+.hp-card-s {
+  position: absolute; z-index: 1; left: 10%; bottom: 11.5%; max-width: 55%;
+  font-size: 6.8cqw; font-weight: 500; line-height: 1.2; color: var(--pk-sub);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hp-card-l {
+  position: absolute; z-index: 1; right: 10.5%; bottom: 10%;
+  width: 13.5cqw; height: 13.5cqw; color: var(--pk-sub); opacity: .85;
+}
+.hp-card-l .svg-icon { width: 100%; height: 100%; stroke-width: 1.7; }
+
+.hp-card.hp-card-add::before, .hp-card.hp-card-add::after { display: none; }
+.hp-card.hp-card-add { filter: none; container-type: normal; }
+
+/* light theme: beat the old tinted .hp-card-m background so the grey back panel shows (and the corners stay round) */
+body .hp-card .hp-card-m,
+body.theme-light .hp-card .hp-card-m,
+body.theme-dark .hp-card .hp-card-m { background: none !important; border-radius: 0; }
+
+/* ── iOS fixes ──────────────────────────────────────────────────── */
+/* backdrop-filter inside a horizontally scrolling strip makes WebKit paint tiles blank/smudged:
+   keep the see-through look on touch devices, but without the blur */
+body.is-mobile .hp-card::after,
+body.is-phone .hp-card::after,
+body.is-tablet .hp-card::after {
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}
+/* room under the strip so the tile shadows are not sliced off */
+@media (max-width: 600px) {
+  .hp-grid:not(.hp-grid-2) { padding-bottom: 28px; margin-bottom: -16px; }
+}
+
+/* ── iOS fix 2: no backdrop blur anywhere, and an explicit paint order ── */
+.hp-card { isolation: isolate; }
+.hp-card::before { z-index: 0; }
+.hp-card .hp-card-m { z-index: 1; }
+.hp-card::after {
+  z-index: 2;
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}
+.hp-card .hp-card-i, .hp-card .hp-card-t, .hp-card .hp-card-s, .hp-card .hp-card-l { z-index: 3; }
+
+/* ── full-size sheets: the paper runs all the way down behind the pocket ── */
+.hp-card .hp-card-m::before { bottom: 8%; border-radius: 3.6cqw; }
+.hp-card .hp-card-m::after  { bottom: 5%; border-radius: 3.2cqw; }
+body.theme-dark .hp-card { --pk-paper: #55534f; --pk-paper2: #403f3c; }
+body.theme-light .hp-card::after {
+  background:
+    radial-gradient(ellipse 70% 72% at 50% 38%, rgba(255,255,255,.60), rgba(255,255,255,0) 78%),
+    linear-gradient(180deg, rgba(253,251,246,.70) 0%, rgba(247,244,236,.72) 60%, rgba(240,236,226,.78) 100%);
+}
+
+/* ── frosted glass pocket ────────────────────────────────────────── */
+body .hp-card::after,
+body.is-mobile .hp-card::after, body.is-phone .hp-card::after, body.is-tablet .hp-card::after {
+  -webkit-backdrop-filter: blur(14px) saturate(1.5) !important;
+  backdrop-filter: blur(14px) saturate(1.5) !important;
+}
+body.theme-light .hp-card::after {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,0) 28%),
+    radial-gradient(ellipse 70% 72% at 50% 38%, rgba(255,255,255,.50), rgba(255,255,255,0) 78%),
+    linear-gradient(180deg, rgba(252,250,245,.46), rgba(244,240,231,.58));
+  box-shadow:
+    inset 4.5cqw 0 4cqw -3cqw rgba(125,112,88,.22),
+    inset -4.5cqw 0 4cqw -3cqw rgba(125,112,88,.22),
+    inset 0 -5cqw 4.5cqw -3.5cqw rgba(125,112,88,.24),
+    inset 0 0 0 .35cqw rgba(255,255,255,.55),
+    inset 0 .5cqw 0 rgba(255,255,255,.9);
+}
+body.theme-dark .hp-card::after {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.16) 0%, rgba(255,255,255,0) 26%),
+    radial-gradient(ellipse 70% 72% at 50% 36%, rgba(255,255,255,.10), rgba(255,255,255,0) 78%),
+    linear-gradient(180deg, rgba(42,42,46,.50), rgba(34,34,38,.62));
+  box-shadow:
+    inset 4.5cqw 0 4cqw -3cqw rgba(0,0,0,.30),
+    inset -4.5cqw 0 4cqw -3cqw rgba(0,0,0,.30),
+    inset 0 -5cqw 4.5cqw -3.5cqw rgba(0,0,0,.34),
+    inset 0 0 0 .35cqw rgba(255,255,255,.12),
+    inset 0 .5cqw 0 rgba(255,255,255,.28);
+}
+
+/* ── dark theme: light sheets, smoked-glass pocket keeps the text readable ── */
+body.theme-dark .hp-card { --pk-paper: #ecebe6; --pk-paper2: #bdbab2; --pk-sub: #cfcbc2; }
+
+/* ── home button: entrance animation ───────────────────────────────
+   Plays on mount and again whenever it comes back (display:none →
+   flex restarts a CSS animation), e.g. after a drawer closes. */
+@keyframes rb-home-pop {
+  0%   { opacity: 0; transform: translateY(18px) scale(.4) rotate(-25deg); }
+  55%  { opacity: 1; transform: translateY(-4px) scale(1.12) rotate(4deg); }
+  80%  { transform: translateY(1px) scale(.97) rotate(0); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes rb-home-ico {
+  0%, 40% { transform: scale(.5); opacity: 0; }
+  100%    { transform: scale(1); opacity: 1; }
+}
+.rb-home, .rb-home-d { animation: rb-home-pop .55s cubic-bezier(.34, 1.4, .64, 1) backwards; }
+.rb-home svg, .rb-home-d svg { animation: rb-home-ico .5s ease-out backwards; }
+@media (prefers-reduced-motion: reduce) {
+  .rb-home, .rb-home-d, .rb-home svg, .rb-home-d svg { animation: none; }
+}

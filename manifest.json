@@ -1,0 +1,10 @@
+{
+  "id": "rabby-homepage",
+  "name": "Homepage (Rabby)",
+  "version": "3.8.1",
+  "minAppVersion": "1.0.0",
+  "description": "Native homepage view, a configurable mobile dock that replaces Obsidian's navbar, and a per-note bookmark button. Paints from a cached snapshot on the first frame; boot touches no network.",
+  "author": "Sk Fazla Rabby",
+  "authorUrl": "https://github.com/rabby0101",
+  "isDesktopOnly": false
+}

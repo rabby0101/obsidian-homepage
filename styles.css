@@ -1509,3 +1509,175 @@ body.theme-light .rb-tabs-pill { border: none; background: hsl(var(--tab-h) 70% 
 /* with the keyboard up, the keyboard covers the home-indicator area */
 body.is-phone:not([style*="--keyboard-height: 0px"]) .modal.rb-sheet,
 body.is-phone:not([style*="--keyboard-height: 0px"]) .modal.rb-kb { padding-bottom: 14px; }
+
+/* ── File properties panel (v3.12) ───────────────────────────────────
+   Obsidian's own sidebar view, styled like the plugin settings: one
+   rounded card, one slim row per property (icon tile + name on the left,
+   value on the right), thin dividers. Desktop and mobile. Look only. */
+.workspace-leaf-content[data-type="file-properties"] .view-content { padding: 12px 12px 32px !important; }
+.workspace-leaf-content[data-type="file-properties"] .metadata-container {
+  --metadata-divider-width: 0;
+  margin: 0 !important; padding: 2px 0 !important;
+  border: none !important;
+  border-radius: 16px;
+  background: var(--background-modifier-hover) !important;
+}
+.workspace-leaf-content[data-type="file-properties"] .metadata-properties { gap: 0 !important; }
+.workspace-leaf-content[data-type="file-properties"] .metadata-property {
+  display: flex !important; align-items: center !important;
+  gap: 10px;
+  min-height: 48px;
+  padding: 6px 12px !important;
+  border: none !important;
+  border-top: 1px solid var(--background-modifier-border) !important;
+  border-radius: 0 !important;
+  background: none !important;
+  position: relative;
+}
+.workspace-leaf-content[data-type="file-properties"] .metadata-property:first-child { border-top: none !important; }
+.workspace-leaf-content[data-type="file-properties"] .metadata-property:hover { background: color-mix(in srgb, var(--text-normal) 4%, transparent) !important; }
+
+/* left: icon tile + name */
+.workspace-leaf-content[data-type="file-properties"] .metadata-property-key {
+  flex: 0 0 40% !important; width: 40% !important; min-width: 0 !important;
+  display: flex; align-items: center; gap: 10px;
+  border: none !important; padding: 0 !important;
+}
+.workspace-leaf-content[data-type="file-properties"] .metadata-property-icon {
+  flex: 0 0 auto;
+  width: 28px !important; height: 28px !important;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--interactive-accent) 15%, transparent);
+  color: var(--interactive-accent) !important;
+}
+.workspace-leaf-content[data-type="file-properties"] .metadata-property-icon svg { width: 15px; height: 15px; }
+.workspace-leaf-content[data-type="file-properties"] .metadata-property-key-input {
+  min-width: 0;
+  font-size: var(--font-ui-small) !important;
+  font-weight: 500;
+  color: var(--text-muted) !important;
+  padding: 0 !important;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* right: value, one line */
+.workspace-leaf-content[data-type="file-properties"] .metadata-property-value {
+  flex: 1 1 auto !important; min-width: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  font-size: var(--font-ui-small);
+  color: var(--text-normal);
+  overflow: hidden;
+}
+.workspace-leaf-content[data-type="file-properties"] .metadata-property-value .metadata-input-longtext {
+  min-height: 0 !important; padding: 0 !important;
+  max-height: 1.5em; overflow: hidden;
+  white-space: nowrap; text-overflow: ellipsis;
+}
+.workspace-leaf-content[data-type="file-properties"] .metadata-property-value .metadata-input-longtext:focus { max-height: none; white-space: normal; }
+.workspace-leaf-content[data-type="file-properties"] .metadata-property-value .metadata-link,
+.workspace-leaf-content[data-type="file-properties"] .metadata-property-value .metadata-link-inner,
+.workspace-leaf-content[data-type="file-properties"] .metadata-property-value .external-link {
+  display: block; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.workspace-leaf-content[data-type="file-properties"] .metadata-property-value .multi-select-container { padding: 0 !important; min-height: 0 !important; flex-wrap: nowrap; overflow: hidden; }
+.workspace-leaf-content[data-type="file-properties"] .metadata-property-value .multi-select-pill {
+  background: color-mix(in srgb, var(--interactive-accent) 15%, transparent);
+  color: var(--interactive-accent);
+}
+.workspace-leaf-content[data-type="file-properties"] .metadata-property-value input[type="number"],
+.workspace-leaf-content[data-type="file-properties"] .metadata-property-value input[type="date"],
+.workspace-leaf-content[data-type="file-properties"] .metadata-property-value input[type="datetime-local"] { padding: 0 !important; height: auto; background: none; }
+.workspace-leaf-content[data-type="file-properties"] .metadata-property-value input[type="checkbox"] { margin: 0; }
+.workspace-leaf-content[data-type="file-properties"] .metadata-property-warning-icon { flex: 0 0 auto; }
+
+/* add property: a plain accent row */
+.workspace-leaf-content[data-type="file-properties"] .metadata-add-button {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; margin: 0 !important;
+  min-height: 46px; padding: 6px 12px !important;
+  border: none !important;
+  border-top: 1px solid var(--background-modifier-border) !important;
+  border-radius: 0 !important;
+  background: none !important; box-shadow: none !important;
+  color: var(--interactive-accent) !important;
+  font-size: var(--font-ui-small); font-weight: 600;
+}
+.workspace-leaf-content[data-type="file-properties"] .metadata-add-button .text-button-icon {
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+}
+.workspace-leaf-content[data-type="file-properties"] .metadata-add-button svg { color: var(--interactive-accent); }
+/* narrow sidebars (desktop): a little more room for names */
+.workspace-leaf-content[data-type="file-properties"] .metadata-property-key { flex-basis: 46% !important; width: 46% !important; gap: 8px; }
+.workspace-leaf-content[data-type="file-properties"] .metadata-property-icon { width: 26px !important; height: 26px !important; }
+.is-phone .workspace-leaf-content[data-type="file-properties"] .metadata-property-key { flex-basis: 42% !important; width: 42% !important; }
+
+/* File properties on phones and tablets: denser and calmer */
+.is-mobile .workspace-leaf-content[data-type="file-properties"] .metadata-container {
+  background: none !important;
+  border: 1px solid var(--background-modifier-border) !important;
+  border-radius: 14px;
+}
+.is-mobile .workspace-leaf-content[data-type="file-properties"] .metadata-property {
+  min-height: 38px;
+  padding: 3px 12px !important;
+  gap: 8px;
+}
+.is-mobile .workspace-leaf-content[data-type="file-properties"] .metadata-property-icon {
+  width: 18px !important; height: 18px !important;
+  background: none;
+  color: var(--text-faint) !important;
+  border-radius: 0;
+}
+.is-mobile .workspace-leaf-content[data-type="file-properties"] .metadata-property-icon svg { width: 15px; height: 15px; }
+.is-mobile .workspace-leaf-content[data-type="file-properties"] .metadata-property-key { gap: 8px; }
+.is-mobile .workspace-leaf-content[data-type="file-properties"] .metadata-property-value .multi-select-pill {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+.is-mobile .workspace-leaf-content[data-type="file-properties"] .metadata-add-button {
+  min-height: 40px; padding: 3px 12px !important;
+}
+.is-mobile .workspace-leaf-content[data-type="file-properties"] .metadata-add-button .text-button-icon { width: 18px; height: 18px; }
+.is-mobile .workspace-leaf-content[data-type="file-properties"] .metadata-container { border-radius: 6px !important; }
+.workspace-leaf-content[data-type="file-properties"] .metadata-container { border-radius: 6px !important; }
+/* Obsidian's mobile styling gives the inner box its own dark, 24px-round
+   panel; inside the card it should be invisible */
+.workspace-leaf-content[data-type="file-properties"] .metadata-content {
+  background: none !important;
+  border-radius: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+/* keep every value on the row's centre line (links sat higher) */
+.workspace-leaf-content[data-type="file-properties"] .metadata-property-value {
+  display: flex !important; align-items: center;
+}
+.workspace-leaf-content[data-type="file-properties"] .metadata-property-value > * { margin-top: 0 !important; margin-bottom: 0 !important; }
+.workspace-leaf-content[data-type="file-properties"] .metadata-link { display: flex; align-items: center; gap: 4px; min-width: 0; }
+/* rows stay inside the card */
+.workspace-leaf-content[data-type="file-properties"] .metadata-properties { margin: 0 !important; padding: 0 !important; }
+.workspace-leaf-content[data-type="file-properties"] .metadata-property { margin: 0 !important; width: auto !important; }
+/* links: one line, centred, external-link icon beside the text */
+.workspace-leaf-content[data-type="file-properties"] .metadata-property-value .metadata-link {
+  display: flex !important; align-items: center; gap: 4px;
+  min-width: 0; max-width: 100%;
+  height: auto !important; min-height: 0 !important;
+  padding: 0 !important;
+}
+.workspace-leaf-content[data-type="file-properties"] .metadata-property-value .metadata-link-inner { flex: 0 1 auto; min-width: 0; }
+.workspace-leaf-content[data-type="file-properties"] .metadata-property-value .metadata-link-flair { flex: 0 0 auto; padding: 0 !important; }
+/* Obsidian mobile widens the inner box past its container; keep it inside */
+.workspace-leaf-content[data-type="file-properties"] .metadata-content,
+.workspace-leaf-content[data-type="file-properties"] .metadata-properties {
+  width: 100% !important; max-width: 100% !important;
+  position: static !important; left: auto !important; right: auto !important;
+  transform: none !important;
+  box-sizing: border-box;
+}
+.workspace-leaf-content[data-type="file-properties"] .metadata-container { overflow: hidden; }

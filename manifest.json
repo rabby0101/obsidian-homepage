@@ -1,7 +1,7 @@
 {
   "id": "rabby-homepage",
   "name": "Homepage (Rabby)",
-  "version": "3.11.0",
+  "version": "3.12.0",
   "minAppVersion": "1.0.0",
   "description": "Native homepage view with bookmarks, sections and a quote, plus a per-note bookmark button. Paints from a cached snapshot on the first frame; boot touches no network.",
   "author": "Sk Fazla Rabby",

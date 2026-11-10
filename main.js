@@ -783,6 +783,8 @@ const DEFAULTS = {
      centred, and the homepage is reached from the command palette or
      the ribbon. */
   homeButton: false,
+  /* mobile: put Obsidian's own File properties panel in the left sidebar */
+  propsLeft: false,
   quote: {
     enabled: true,
     text: 'Tell me and I forget, teach me and I may remember, involve me and I learn.',
@@ -825,6 +827,7 @@ module.exports = class HomepagePlugin extends Plugin {
     /* bookmark button in each note's own header, and the dock */
     this.app.workspace.onLayoutReady(() => {
       this.syncTabsView();
+      this.placePropsLeft();
       this.mountDock();
       this.mountHome();
       this.decorateActiveView();
@@ -1395,6 +1398,31 @@ module.exports = class HomepagePlugin extends Plugin {
     if (leaf) await leaf.setViewState({ type: TABS_VIEW, active: false });
   }
 
+  /* ── File properties in the left sidebar (mobile) ────────────────
+     On a phone Obsidian can't move a panel between sidebars, and the
+     File properties panel opens on the right. With the setting on, this
+     puts it in the left sidebar, once per device: if you move or close it
+     afterwards, it is left alone. The "done" mark lives in this device's
+     local storage, so every phone and tablet gets it once. */
+  async placePropsLeft(force = false) {
+    if (!Platform.isMobile || !this.settings.propsLeft) return;
+    if (!this.app.internalPlugins?.getPluginById?.('properties')?.enabled) return;
+    const KEY = 'rabby-homepage-props-left';
+    if (!force && this.app.loadLocalStorage?.(KEY)) return;
+    const ws = this.app.workspace;
+    if (!ws.getLeavesOfType('file-properties').some(l => l.getRoot() === ws.leftSplit)) {
+      let leaf = null;
+      const fe = ws.getLeavesOfType('file-explorer').find(l => l.getRoot() === ws.leftSplit);
+      if (fe && fe.parent && typeof ws.createLeafInParent === 'function') {
+        leaf = ws.createLeafInParent(fe.parent, fe.parent.children.length);
+      }
+      if (!leaf) leaf = ws.getLeftLeaf(false);
+      if (leaf) await leaf.setViewState({ type: 'file-properties', active: false });
+      ws.requestSaveLayout?.();
+    }
+    this.app.saveLocalStorage?.(KEY, '1');
+  }
+
   async activate() {
     const { workspace } = this.app;
     let leaf = workspace.getLeavesOfType(VIEW_TYPE)[0];
@@ -1584,6 +1612,24 @@ class HomepageSettings extends PluginSettingTab {
       cls: 'rb-group-note',
       text: 'A note appears in a section when its frontmatter has type: Widget and Class: [[<Class value>]]. Tap a section to edit it.',
     });
+
+    /* Miscellaneous */
+    const misc = this.group(c, 'Miscellaneous');
+    new Setting(misc)
+      .setName('File properties in the left sidebar')
+      .setDesc('Mobile only. Puts Obsidian\u2019s File properties panel in the left sidebar, once on each phone or tablet. Needs the Properties view core plugin.')
+      .addToggle(t => t
+        .setValue(!!S.propsLeft)
+        .onChange(async v => {
+          S.propsLeft = v;
+          this.plugin.persist();
+          if (!v) return;
+          if (!this.app.internalPlugins?.getPluginById?.('properties')?.enabled) {
+            new Notice('Turn on Properties view in Settings \u2192 Core plugins first');
+            return;
+          }
+          await this.plugin.placePropsLeft(true);
+        }));
   }
 }
 

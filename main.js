@@ -45,18 +45,16 @@ const TABS_VIEW   = 'rabby-open-tabs-view';
 const BANNER_DIR  = 'Attachments/_banners';
 
 
-/* Colours and icons lifted from Callouts.css so the view matches the
-   callouts it replaces. */
+/* A fresh install (and "Reset") starts with one generic section. */
 const SECTIONS = [
-  { id: 'Career',   label: 'Career',   icon: 'briefcase',       rgb: '254,153,0'   },
-  { id: 'Article',  label: 'Article',  icon: 'file-bar-chart',  rgb: '81,254,0'    },
-  { id: 'Finance',  label: 'Finance',  icon: 'wallet-cards',    rgb: '0,186,254'   },
-  { id: 'Personal', label: 'Personal', icon: 'user',            rgb: '255,134,215' },
-  { id: 'Study',    label: 'Study',    icon: 'graduation-cap',  rgb: '255,128,128' },
-  { id: 'Family',   label: 'Family',   icon: 'users',           rgb: '186,148,255' },
+  { id: 'Notes', label: 'Notes', icon: 'folder', rgb: '99,102,241' },
 ];
 
+/* preset colours offered in the section editor */
+const SWATCHES = ['254,153,0', '81,254,0', '0,186,254', '255,134,215', '255,128,128', '186,148,255'];
+
 const BOOKMARK_PREVIEW = 4;
+const OPEN_KEY = 'rabby-homepage-open';
 
 /* Sections are user data now (settings.sections). SECTIONS above is only
    the factory default — what a fresh install, or "Reset", starts from.
@@ -581,16 +579,14 @@ class HomepageView extends ItemView {
       grid.appendChild(this.addTile(def));
     };
 
-    const open = !!(this.plugin.settings.open || {})[def.id];
+    const open = !!this.plugin.openState()[def.id];
     if (open) { wrap.addClass('is-open'); fill(); }
 
     head.onclick = () => {
       const now = !wrap.hasClass('is-open');
       wrap.toggleClass('is-open', now);
       if (now) fill();
-      this.plugin.settings.open = this.plugin.settings.open || {};
-      this.plugin.settings.open[def.id] = now;
-      this.plugin.saveSettings();
+      this.plugin.setOpen(def.id, now);
     };
   }
 
@@ -1262,10 +1258,21 @@ module.exports = class HomepagePlugin extends Plugin {
     /* sections became user-editable; seed them from the old fixed list so
        nobody loses what they had. Open/closed state is keyed by id, and
        the built-in ids are unchanged, so that carries over too. */
-    if (!Array.isArray(this.settings.sections) || !this.settings.sections.length) {
+    /* Only when sections were never set. A list you emptied yourself
+       stays empty: deleted sections must not come back on restart. */
+    if (!Array.isArray(this.settings.sections)) {
       this.settings.sections = defaultSections();
       this.persist();
     }
+
+    /* which sections are folded open is per-device state: it used to be
+       saved in data.json, so just opening a section rewrote the whole
+       settings file from memory, and on a synced vault that could bring
+       back sections deleted on another device. */
+    if (this.settings.open && !this.app.loadLocalStorage(OPEN_KEY)) {
+      this.app.saveLocalStorage(OPEN_KEY, JSON.stringify(this.settings.open));
+    }
+    delete this.settings.open;
 
     /* openOnStart was a boolean before boot modes existed */
     if (this.settings.bootMode === undefined) {
@@ -1331,8 +1338,26 @@ module.exports = class HomepagePlugin extends Plugin {
      rarely and syncs cleanly. The cache lives in snapshot.json, which can
      be excluded from sync: it is rebuilt on every open. */
   persist() {
-    const { snapshot, ...rest } = this.settings;
+    const { snapshot, open, ...rest } = this.settings;
     return this.saveData(rest);
+  }
+
+  openState() {
+    try { return JSON.parse(this.app.loadLocalStorage(OPEN_KEY) || '{}') || {}; } catch (_) { return {}; }
+  }
+  setOpen(id, value) {
+    const o = this.openState();
+    if (value == null) delete o[id]; else o[id] = !!value;
+    this.app.saveLocalStorage(OPEN_KEY, JSON.stringify(o));
+  }
+
+  /** Read data.json again, so edits start from what is on disk (another
+   *  device may have changed it through sync). */
+  async reloadSettings() {
+    const snap = this.settings.snapshot;
+    this.settings = Object.assign({}, DEFAULTS, await this.loadData(), { snapshot: snap });
+    this.migrate();
+    this.refreshViews();
   }
 
   _snapPath() { return `${this.manifest.dir}/snapshot.json`; }
@@ -1536,8 +1561,16 @@ class HomepageSettings extends PluginSettingTab {
       () => { P.settings.sections = defaultSections(); commit(); redraw(); }, redraw);
   }
 
+  hide() { this._fresh = false; }
+
   display() {
     const { containerEl: c } = this;
+    if (!this._fresh) {
+      /* opened: load the saved settings first, then draw */
+      this._fresh = true;
+      this.plugin.reloadSettings().then(() => this.display(), () => this.display());
+      return;
+    }
     c.empty();
     c.addClass('rb-hp-settings');
     const S = this.plugin.settings;
@@ -1696,7 +1729,7 @@ class SectionModal extends Modal {
     const mark = () => pickables.forEach(([el, rgb]) => el.toggleClass('is-on', rgb === s.rgb));
     const pick = rgb => { s.rgb = rgb; paint(); mark(); save(); };
 
-    const choices = [...new Set([...SECTIONS.map(x => x.rgb), ...PALETTE].filter(Boolean))];
+    const choices = [...new Set([...SWATCHES, ...PALETTE].filter(Boolean))];
     choices.forEach(rgb => {
       const sw = cg.createDiv({ cls: 'rb-swatch' });
       sw.style.setProperty('--rb-rgb', rgb);
@@ -1751,7 +1784,7 @@ class SectionModal extends Modal {
       }
       const k = secs.indexOf(s);
       if (k >= 0) secs.splice(k, 1);
-      delete (P.settings.open || {})[s.id];
+      P.setOpen(s.id, null);
       this.armed = false;
       this.close();
     });

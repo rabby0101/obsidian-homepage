@@ -606,6 +606,9 @@ class HomepageView extends ItemView {
       media.addClass('is-loaded');
     }
 
+    /* iOS only (hidden elsewhere): hand-drawn frost for the pocket */
+    el.createDiv({ cls: 'hp-card-g' });
+
     const ico = el.createDiv({ cls: 'hp-card-i' });
     const em = (item.icon || '').trim();
     if (em && !/^[\w./-]+\.(png|jpe?g|svg|webp|gif)$/i.test(em) && em.length <= 8) ico.setText(em);

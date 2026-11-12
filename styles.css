@@ -1681,3 +1681,39 @@ body.is-phone:not([style*="--keyboard-height: 0px"]) .modal.rb-kb { padding-bott
   box-sizing: border-box;
 }
 .workspace-leaf-content[data-type="file-properties"] .metadata-container { overflow: hidden; }
+
+/* ── iOS: frosted pocket without backdrop-filter ───────────────────
+   WebKit paints a tile blank (icon and title missing) when a clipped
+   backdrop-filter layer sits inside the sideways-scrolling strip. On
+   iOS / iPadOS the frost is drawn by hand instead: .hp-card-g is cut
+   to the pocket shape, hides the sharp sheets behind it and shows a
+   blurred copy of them (plain filter: blur, which WebKit handles). */
+.hp-card-g { display: none; }
+body.is-ios .hp-card::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+body.is-ios .hp-card:not(.hp-card-add) .hp-card-g {
+  display: block;
+  position: absolute; inset: 0; z-index: 1;
+  overflow: hidden;
+  border-radius: 0 0 10cqw 10cqw;
+  background: var(--pk-back);
+  clip-path: polygon(0.0% 24.7%, 0.2% 23.5%, 0.8% 22.3%, 1.6% 21.5%, 2.8% 20.9%, 4.0% 20.7%, 46.0% 20.7%, 46.8% 20.8%, 47.7% 20.9%, 48.5% 21.1%, 49.3% 21.4%, 50.2% 21.8%, 51.0% 22.2%, 51.8% 22.7%, 52.7% 23.3%, 53.5% 23.8%, 54.3% 24.4%, 55.2% 25.0%, 56.0% 25.6%, 56.8% 26.3%, 57.7% 26.9%, 58.5% 27.5%, 59.3% 28.0%, 60.2% 28.6%, 61.0% 29.1%, 61.8% 29.5%, 62.7% 29.9%, 63.5% 30.2%, 64.3% 30.4%, 65.2% 30.5%, 66.0% 30.6%, 100.0% 30.6%, 100.0% 100.0%, 0.0% 100.0%);
+}
+body.is-ios .hp-card-g::before,
+body.is-ios .hp-card-g::after {
+  content: ''; position: absolute;
+  -webkit-filter: blur(7.5cqw); filter: blur(7.5cqw);
+}
+body.is-ios .hp-card-g::before {
+  left: 13%; right: 7.5%; top: 8%; bottom: 8%;
+  border-radius: 3.6cqw;
+  background: var(--pk-paper2);
+  transform: rotate(1.1deg); transform-origin: 50% 100%;
+}
+body.is-ios .hp-card-g::after {
+  left: 10.3%; right: 10.2%; top: 12%; bottom: 5%;
+  border-radius: 3.2cqw;
+  background: var(--pk-paper);
+}

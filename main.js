@@ -150,6 +150,10 @@ class HomepageView extends ItemView {
       this.registerEvent(this.app.metadataCache.on('changed', () => { this.queueReconcile(); this.refreshOverview(); }));
       this.registerEvent(this.app.vault.on('delete',  () => this.queueReconcile()));
       this.registerEvent(this.app.vault.on('rename',  () => this.queueReconcile()));
+      /* Bookmarks added or removed anywhere (Task Manager, the Bookmarks pane) */
+      const bm = this.app.internalPlugins.getPluginById('bookmarks');
+      if (bm && bm.instance && typeof bm.instance.on === 'function')
+        this.registerEvent(bm.instance.on('changed', () => this.queueReconcile()));
     });
   }
 

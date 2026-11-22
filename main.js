@@ -42,6 +42,7 @@ const {
 
 const VIEW_TYPE   = 'rabby-homepage-view';
 const TABS_VIEW   = 'rabby-open-tabs-view';
+const RECENT_VIEW = 'rabby-recent-files-view';
 const BANNER_DIR  = 'Attachments/_banners';
 
 
@@ -746,6 +747,113 @@ class OpenTabsView extends ItemView {
   }
 }
 
+/* ── recent files: notes you edited last, in the right sidebar ───────── */
+
+/* attachment folders (Attachments, Attachments 1, ...) hold imported files, not your notes */
+const inAttachments = path => path.split('/').slice(0, -1).some(seg => /^attachments( \d+)?$/i.test(seg));
+
+function timeAgo(ms) {
+  const s = Math.max(0, (Date.now() - ms) / 1000);
+  if (s < 60) return 'just now';
+  const m = s / 60; if (m < 60) return Math.floor(m) + ' min ago';
+  const h = m / 60; if (h < 24) return Math.floor(h) + ' h ago';
+  const d = h / 24; if (d < 7) return Math.floor(d) === 1 ? 'yesterday' : Math.floor(d) + ' days ago';
+  return new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: d > 300 ? 'numeric' : undefined });
+}
+
+/* a note's opening text as plain words: no frontmatter, code, markup or embeds */
+function plainPreview(text) {
+  let t = text.replace(/^---\n[\s\S]*?\n---\n?/, '');
+  t = t.replace(/```[\s\S]*?(```|$)/g, ' ').replace(/%%[\s\S]*?%%/g, ' ').replace(/<[^>]+>/g, ' ');
+  t = t.replace(/!\[\[[^\]]*\]\]/g, ' ').replace(/!\[[^\]]*\]\([^)]*\)/g, ' ');
+  t = t.replace(/\[\[([^\]|]*\|)?([^\]]*)\]\]/g, '$2').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1');
+  t = t.replace(/^\s*([#>]+|[-*+]\s+\[.\]|[-*+]|\d+\.)\s*/gm, '').replace(/[*_~`=]+/g, '').replace(/\^[a-z0-9]+\b/gi, '');
+  t = t.replace(/[📅⏰🔁🔖✅↻]/gu, ' ');
+  return t.replace(/\s+/g, ' ').trim().slice(0, 180);
+}
+
+class RecentFilesView extends ItemView {
+  constructor(leaf, plugin) { super(leaf); this.plugin = plugin; this.previews = new Map(); }
+  getViewType()    { return RECENT_VIEW; }
+  getDisplayText() { return 'Recent files'; }
+  getIcon()        { return 'history'; }
+
+  async onOpen() {
+    this.contentEl.addClass('rb-recent');
+    let t = null;
+    const queue = () => { clearTimeout(t); t = setTimeout(() => this.render(), 600); };
+    this.register(() => clearTimeout(t));
+    for (const ev of ['modify', 'create', 'delete', 'rename']) this.registerEvent(this.app.vault.on(ev, queue));
+    this.registerEvent(this.app.workspace.on('file-open', queue));
+    this.registerInterval(window.setInterval(() => this.paintTimes(), 60000));
+    this.render();
+  }
+
+  async onClose() { this.contentEl.empty(); }
+
+  files() {
+    const n = this.plugin.settings.recentCount || 20;
+    return this.app.vault.getMarkdownFiles()
+      .filter(f => !inAttachments(f.path))
+      .sort((a, b) => b.stat.mtime - a.stat.mtime)
+      .slice(0, n);
+  }
+
+  render() {
+    const files = this.files();
+    const activeFile = this.app.workspace.getActiveFile();
+    const el = this.contentEl;
+    el.empty();
+    const h = el.createDiv({ cls: 'rb-tabs-h' });
+    h.createSpan({ text: 'Recent files' });
+    if (!files.length) { el.createDiv({ cls: 'rb-tabs-empty', text: 'No notes yet' }); return; }
+    const list = el.createDiv({ cls: 'rb-recent-list' });
+    this.times = [];
+    for (const f of files) {
+      const row = list.createDiv({ cls: 'rb-recent-row' + (activeFile && activeFile.path === f.path ? ' is-active' : '') });
+      row.setAttr('title', f.path);
+      const fm = this.app.metadataCache.getFileCache(f)?.frontmatter || {};
+      const ic = row.createDiv({ cls: 'rb-recent-ic' });
+      const emoji = typeof fm.banner_icon === 'string' ? fm.banner_icon.trim() : '';
+      if (emoji && !/^https?:|[\[\/]/.test(emoji)) ic.setText(emoji); else setIcon(ic, 'file-text');
+      const body = row.createDiv({ cls: 'rb-recent-b' });
+      const top = body.createDiv({ cls: 'rb-recent-top' });
+      top.createSpan({ cls: 'rb-recent-n', text: f.basename });
+      const when = top.createSpan({ cls: 'rb-recent-when' });
+      this.times.push([when, f.stat.mtime]);
+      const folder = f.parent && f.parent.path !== '/' ? f.parent.path : '';
+      if (folder) body.createDiv({ cls: 'rb-recent-dir', text: folder });
+      const pv = body.createDiv({ cls: 'rb-recent-pv' });
+      this.fillPreview(f, pv);
+      row.onclick = e => this.openNote(f, e);
+      row.addEventListener('auxclick', e => { if (e.button === 1) { e.preventDefault(); this.app.workspace.getLeaf('tab').openFile(f); } });
+    }
+    this.paintTimes();
+  }
+
+  paintTimes() { for (const [el, ms] of this.times || []) el.setText(timeAgo(ms)); }
+
+  /* previews are read lazily and cached until the note changes */
+  async fillPreview(f, el) {
+    const key = f.path, hit = this.previews.get(key);
+    let text;
+    if (hit && hit.mt === f.stat.mtime) text = hit.text;
+    else {
+      try { text = plainPreview(await this.app.vault.cachedRead(f)); } catch (e) { text = ''; }
+      this.previews.set(key, { mt: f.stat.mtime, text });
+    }
+    if (text) el.setText(text); else el.remove();
+  }
+
+  /* not named open(): Obsidian calls ItemView.open() itself when the panel is shown */
+  openNote(f, e) {
+    const ws = this.app.workspace;
+    const newTab = e && (e.ctrlKey || e.metaKey);
+    ws.getLeaf(newTab ? 'tab' : false).openFile(f);
+    if (Platform.isPhone && ws.rightSplit && typeof ws.rightSplit.collapse === 'function') ws.rightSplit.collapse();
+  }
+}
+
 class NewTileModal extends Modal {
   constructor(app, def, onSubmit) { super(app); this.def = def; this.onSubmit = onSubmit; }
   onOpen() {
@@ -781,6 +889,9 @@ const DEFAULTS = {
   bootMode: 'off',
   /* 0 = no cap. Mobile accumulates tabs with no way to close them. */
   showOpenTabs: true,
+  /* a "Recent files" panel in the right sidebar, on every device */
+  showRecent: false,
+  recentCount: 20,
   bootMigrated: false,
   /* The floating orange home circle. Off: the bar is icon-only and
      centred, and the homepage is reached from the command palette or
@@ -808,6 +919,7 @@ module.exports = class HomepagePlugin extends Plugin {
 
     this.registerView(VIEW_TYPE, leaf => new HomepageView(leaf, this));
     this.registerView(TABS_VIEW, leaf => new OpenTabsView(leaf, this));
+    this.registerView(RECENT_VIEW, leaf => new RecentFilesView(leaf, this));
     /* No ribbon icon. On mobile Obsidian surfaces ribbon actions in the
        navbar, and this one showed up there as a house next to the menu
        button. The view is reachable from the command palette, and the
@@ -830,6 +942,7 @@ module.exports = class HomepagePlugin extends Plugin {
     /* bookmark button in each note's own header, and the dock */
     this.app.workspace.onLayoutReady(() => {
       this.syncTabsView();
+      this.syncRecentView();
       this.placePropsLeft();
       this.mountDock();
       this.mountHome();
@@ -1410,6 +1523,7 @@ module.exports = class HomepagePlugin extends Plugin {
     this.unmountDock();
     this.app.workspace.detachLeavesOfType(VIEW_TYPE);
     this.app.workspace.detachLeavesOfType(TABS_VIEW);
+    this.app.workspace.detachLeavesOfType(RECENT_VIEW);
   }
 
   /* Puts the Open tabs panel in the left sidebar, in the same tab group as
@@ -1428,6 +1542,25 @@ module.exports = class HomepagePlugin extends Plugin {
     }
     if (!leaf) leaf = ws.getLeftLeaf(false);
     if (leaf) await leaf.setViewState({ type: TABS_VIEW, active: false });
+  }
+
+  /* Puts the Recent files panel in the right sidebar, as one more tab next to
+     what is already there, or removes it — whichever the setting says. */
+  async syncRecentView() {
+    const ws = this.app.workspace;
+    const existing = ws.getLeavesOfType(RECENT_VIEW);
+    if (!this.settings.showRecent) { existing.forEach(l => l.detach()); return; }
+    if (existing.length) { this.refreshRecent(); return; }
+    let leaf = null, other = null;
+    ws.iterateAllLeaves(l => { if (!other && l.getRoot && l.getRoot() === ws.rightSplit) other = l; });
+    if (other && other.parent && typeof ws.createLeafInParent === 'function') {
+      leaf = ws.createLeafInParent(other.parent, other.parent.children.length);
+    }
+    if (!leaf) leaf = ws.getRightLeaf(false);
+    if (leaf) await leaf.setViewState({ type: RECENT_VIEW, active: false });
+  }
+  refreshRecent() {
+    for (const l of this.app.workspace.getLeavesOfType(RECENT_VIEW)) if (l.view && l.view.render) l.view.render();
   }
 
   /* ── File properties in the left sidebar (mobile) ────────────────
@@ -1595,6 +1728,25 @@ class HomepageSettings extends PluginSettingTab {
           this.plugin.persist();
           await this.plugin.syncTabsView();
         }));
+
+    new Setting(gen)
+      .setName('Recent files panel')
+      .setDesc('A \u201cRecent files\u201d view in the right sidebar: the notes you edited last, with a short preview. On every device.')
+      .addToggle(t => t
+        .setValue(!!S.showRecent)
+        .onChange(async v => {
+          S.showRecent = v;
+          this.plugin.persist();
+          await this.plugin.syncRecentView();
+          this.display();
+        }));
+    if (S.showRecent) new Setting(gen)
+      .setName('Recent files to show')
+      .addDropdown(d => {
+        [10, 20, 30, 50].forEach(n => d.addOption(String(n), String(n)));
+        d.setValue(String(S.recentCount || 20))
+         .onChange(v => { S.recentCount = parseInt(v, 10) || 20; this.plugin.persist(); this.plugin.refreshRecent(); });
+      });
 
     new Setting(gen)
       .setName('Floating home button')

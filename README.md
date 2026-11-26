@@ -2,6 +2,7 @@
 
 **Type:** Plugin · **Version:** 3.13.1 · **ID:** `rabby-homepage`\
 **Repo:** https://github.com/rabby0101/obsidian-homepage\
+**License:** All rights reserved, free to use (was MIT until 26 Nov 2026)\
 **Local:** `~/projects/obsidian-homepage`\
 **Works with:** [Task Manager (Rabby)](https://github.com/rabby0101/obsidian-task-manager), [Paperfold theme](https://github.com/rabby0101/obsidian-paperfold)
 
@@ -122,4 +123,4 @@ Download `main.js`, `manifest.json` and `styles.css` from the latest release int
 
 ## License
 
-MIT © Sk Fazla Rabby
+Copyright © 2026 Sk Fazla Rabby. All rights reserved. Free to install and use; copying, modifying and redistributing are not allowed. See [LICENSE](LICENSE).
